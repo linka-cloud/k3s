@@ -10,16 +10,22 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
-	"github.com/k3s-io/k3s/pkg/token"
 	"golang.org/x/crypto/pbkdf2"
+
+	"github.com/k3s-io/k3s/pkg/token"
+)
+
+var (
+	bootstrapPrefix = os.Getenv("BOOTSTRAP_KEY_PREFIX")
 )
 
 // storageKey returns the etcd key for storing bootstrap data for a given passphrase.
 // The key is derived from the sha256 hash of the passphrase.
 func storageKey(passphrase string) string {
-	return "/bootstrap/" + keyHash(passphrase)
+	return bootstrapPrefix + "/bootstrap/" + keyHash(passphrase)
 }
 
 // keyHash returns the first 12 characters of the sha256 sum of the passphrase.
