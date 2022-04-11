@@ -131,7 +131,7 @@ func Save(ctx context.Context, config *config.Control, override bool) error {
 // bootstrapKeyData lists keys stored in the datastore with the prefix "/bootstrap", and
 // will return the first such key. It will return an error if not exactly one key is found.
 func bootstrapKeyData(ctx context.Context, storageClient client.Client) (*client.Value, error) {
-	bootstrapList, err := storageClient.List(ctx, "/bootstrap", 0)
+	bootstrapList, err := storageClient.List(ctx, bootstrapPrefix+"/bootstrap", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func getBootstrapKeyFromStorage(ctx context.Context, storageClient client.Client
 	var err error
 
 	if err := wait.PollImmediateUntilWithContext(ctx, 5*time.Second, func(ctx context.Context) (bool, error) {
-		bootstrapList, err = storageClient.List(ctx, "/bootstrap", 0)
+		bootstrapList, err = storageClient.List(ctx, bootstrapPrefix+"/bootstrap", 0)
 		if err != nil {
 			if errors.Is(err, rpctypes.ErrGPRCNotSupportedForLearner) {
 				return false, nil
@@ -271,7 +271,7 @@ func getBootstrapKeyFromStorage(ctx context.Context, storageClient client.Client
 	}
 
 	// getting the list of bootstrap again after migrating the empty key
-	bootstrapList, err = storageClient.List(ctx, "/bootstrap", 0)
+	bootstrapList, err = storageClient.List(ctx, bootstrapPrefix+"/bootstrap", 0)
 	if err != nil {
 		return nil, false, err
 	}
