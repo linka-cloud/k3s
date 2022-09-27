@@ -18,25 +18,17 @@ import (
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 )
 
-func createRootlessConfig(argsMap map[string]string, hasCFS, hasPIDs bool) {
+const socketPrefix = "unix://"
+
+func createRootlessConfig(argsMap map[string]string, controllers map[string]bool) {
 	argsMap["feature-gates=KubeletInUserNamespace"] = "true"
 	// "/sys/fs/cgroup" is namespaced
 	cgroupfsWritable := unix.Access("/sys/fs/cgroup", unix.W_OK) == nil
-	if hasCFS && hasPIDs && cgroupfsWritable {
+	if controllers["cpu"] && controllers["pids"] && cgroupfsWritable {
 		logrus.Info("cgroup v2 controllers are delegated for rootless.")
-		// cgroupfs v2, delegated for rootless by systemd
-		argsMap["cgroup-driver"] = "cgroupfs"
-	} else {
-		logrus.Fatal("delegated cgroup v2 controllers are required for rootless.")
+		return
 	}
-}
-
-func checkRuntimeEndpoint(cfg *config.Agent, argsMap map[string]string) {
-	if strings.HasPrefix(argsMap["container-runtime-endpoint"], unixPrefix) {
-		argsMap["container-runtime-endpoint"] = cfg.RuntimeSocket
-	} else {
-		argsMap["container-runtime-endpoint"] = unixPrefix + cfg.RuntimeSocket
-	}
+	logrus.Fatal("delegated cgroup v2 controllers are required for rootless.")
 }
 
 func kubeProxyArgs(cfg *config.Agent) map[string]string {
@@ -67,14 +59,13 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		bindAddress = "::1"
 	}
 	argsMap := map[string]string{
-		"healthz-bind-address":     bindAddress,
-		"read-only-port":           "0",
-		"cluster-domain":           cfg.ClusterDomain,
-		"kubeconfig":               cfg.KubeConfigKubelet,
-		"eviction-hard":            "imagefs.available<5%,nodefs.available<5%",
-		"eviction-minimum-reclaim": "imagefs.available=10%,nodefs.available=10%",
-		"fail-swap-on":             "false",
-		//"cgroup-root": "/k3s",
+		"healthz-bind-address":         bindAddress,
+		"read-only-port":               "0",
+		"cluster-domain":               cfg.ClusterDomain,
+		"kubeconfig":                   cfg.KubeConfigKubelet,
+		"eviction-hard":                "imagefs.available<5%,nodefs.available<5%",
+		"eviction-minimum-reclaim":     "imagefs.available=10%,nodefs.available=10%",
+		"fail-swap-on":                 "false",
 		"cgroup-driver":                "cgroupfs",
 		"authentication-token-webhook": "true",
 		"anonymous-auth":               "false",
@@ -90,15 +81,6 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		argsMap["root-dir"] = cfg.RootDir
 		argsMap["cert-dir"] = filepath.Join(cfg.RootDir, "pki")
 	}
-	if cfg.CNIConfDir != "" {
-		argsMap["cni-conf-dir"] = cfg.CNIConfDir
-	}
-	if cfg.CNIBinDir != "" {
-		argsMap["cni-bin-dir"] = cfg.CNIBinDir
-	}
-	if cfg.CNIPlugin {
-		argsMap["network-plugin"] = "cni"
-	}
 	if len(cfg.ClusterDNS) > 0 {
 		argsMap["cluster-dns"] = util.JoinIPs(cfg.ClusterDNSs)
 	}
@@ -106,18 +88,25 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		argsMap["resolv-conf"] = cfg.ResolvConf
 	}
 	if cfg.RuntimeSocket != "" {
-		argsMap["container-runtime"] = "remote"
-		argsMap["containerd"] = cfg.RuntimeSocket
 		argsMap["serialize-image-pulls"] = "false"
-		checkRuntimeEndpoint(cfg, argsMap)
-	} else if cfg.PauseImage != "" {
+		if strings.Contains(cfg.RuntimeSocket, "containerd") {
+			argsMap["containerd"] = cfg.RuntimeSocket
+		}
+		// cadvisor wants the containerd CRI socket without the prefix, but kubelet wants it with the prefix
+		if strings.HasPrefix(cfg.RuntimeSocket, socketPrefix) {
+			argsMap["container-runtime-endpoint"] = cfg.RuntimeSocket
+		} else {
+			argsMap["container-runtime-endpoint"] = socketPrefix + cfg.RuntimeSocket
+		}
+	}
+	if cfg.PauseImage != "" {
 		argsMap["pod-infra-container-image"] = cfg.PauseImage
 	}
 	if cfg.ImageServiceSocket != "" {
-		if strings.HasPrefix(cfg.ImageServiceSocket, unixPrefix) {
+		if strings.HasPrefix(cfg.ImageServiceSocket, socketPrefix) {
 			argsMap["image-service-endpoint"] = cfg.ImageServiceSocket
 		} else {
-			argsMap["image-service-endpoint"] = unixPrefix + cfg.ImageServiceSocket
+			argsMap["image-service-endpoint"] = socketPrefix + cfg.ImageServiceSocket
 		}
 	}
 	if cfg.ListenAddress != "" {
@@ -138,13 +127,13 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	if err != nil || defaultIP.String() != cfg.NodeIP {
 		argsMap["node-ip"] = cfg.NodeIP
 	}
-	kubeletRoot, runtimeRoot, hasCFS, hasPIDs := cgroups.CheckCgroups()
-	if !hasCFS {
-		logrus.Warn("Disabling CPU quotas due to missing cpu.cfs_period_us")
+	kubeletRoot, runtimeRoot, controllers := cgroups.CheckCgroups()
+	if !controllers["cpu"] {
+		logrus.Warn("Disabling CPU quotas due to missing cpu controller or cpu.cfs_period_us")
 		argsMap["cpu-cfs-quota"] = "false"
 	}
-	if !hasPIDs {
-		logrus.Fatal("PIDS cgroup support not found")
+	if !controllers["pids"] {
+		logrus.Fatal("pids cgroup controller not found")
 	}
 	if kubeletRoot != "" {
 		argsMap["kubelet-cgroups"] = kubeletRoot
@@ -160,6 +149,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	if len(cfg.NodeTaints) > 0 {
 		argsMap["register-with-taints"] = strings.Join(cfg.NodeTaints, ",")
 	}
+
 	if !cfg.DisableCCM {
 		argsMap["cloud-provider"] = "external"
 	}
@@ -172,7 +162,11 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	}
 
 	if cfg.Rootless {
-		createRootlessConfig(argsMap, hasCFS, hasCFS)
+		createRootlessConfig(argsMap, controllers)
+	}
+
+	if cfg.Systemd {
+		argsMap["cgroup-driver"] = "systemd"
 	}
 
 	if cfg.ProtectKernelDefaults {

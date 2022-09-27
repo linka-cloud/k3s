@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/rand"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,7 +22,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
@@ -33,20 +31,6 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/restclient"
 )
 
-func getLocalhostIP(serviceCIDR []*net.IPNet) net.IP {
-	IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(serviceCIDR)
-	if IPv6OnlyService {
-		return net.ParseIP("::1")
-	}
-	return net.ParseIP("127.0.0.1")
-}
-
-type roundTripFunc func(req *http.Request) (*http.Response, error)
-
-func (w roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return w(req)
-}
-
 func Server(ctx context.Context, cfg *config.Control) error {
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -54,7 +38,12 @@ func Server(ctx context.Context, cfg *config.Control) error {
 		return errors.Wrap(err, "preparing server")
 	}
 
-	cfg.Runtime.Tunnel = setupTunnel()
+	tunnel, err := setupTunnel(ctx, cfg)
+	if err != nil {
+		return errors.Wrap(err, "setup tunnel server")
+	}
+	cfg.Runtime.Tunnel = tunnel
+
 	proxyutil.DisableProxyHostnameCheck = true
 
 	authArgs := []string{
@@ -110,10 +99,11 @@ func controllerManager(ctx context.Context, cfg *config.Control) error {
 		"authentication-kubeconfig":        runtime.KubeConfigController,
 		"service-account-private-key-file": runtime.ServiceKey,
 		"allocate-node-cidrs":              "true",
+		"service-cluster-ip-range":         util.JoinIPNets(cfg.ServiceIPRanges),
 		"cluster-cidr":                     util.JoinIPNets(cfg.ClusterIPRanges),
 		"root-ca-file":                     runtime.ServerCA,
 		"profiling":                        "false",
-		"bind-address":                     getLocalhostIP(cfg.ServiceIPRanges).String(),
+		"bind-address":                     cfg.Loopback(false),
 		"secure-port":                      "10257",
 		"use-service-account-credentials":  "true",
 		"cluster-signing-kube-apiserver-client-cert-file": runtime.ClientCA,
@@ -145,7 +135,7 @@ func scheduler(ctx context.Context, cfg *config.Control) error {
 		"kubeconfig":                runtime.KubeConfigScheduler,
 		"authorization-kubeconfig":  runtime.KubeConfigScheduler,
 		"authentication-kubeconfig": runtime.KubeConfigScheduler,
-		"bind-address":              getLocalhostIP(cfg.ServiceIPRanges).String(),
+		"bind-address":              cfg.Loopback(false),
 		"secure-port":               "10259",
 		"profiling":                 "false",
 	}
@@ -179,13 +169,14 @@ func apiServer(ctx context.Context, cfg *config.Control) error {
 	if cfg.AdvertiseIP != "" {
 		argsMap["advertise-address"] = cfg.AdvertiseIP
 	}
-	argsMap["insecure-port"] = "0"
 	argsMap["secure-port"] = strconv.Itoa(cfg.APIServerPort)
 	if cfg.APIServerBindAddress == "" {
-		argsMap["bind-address"] = getLocalhostIP(cfg.ServiceIPRanges).String()
+		argsMap["bind-address"] = cfg.Loopback(false)
 	} else {
 		argsMap["bind-address"] = cfg.APIServerBindAddress
 	}
+	argsMap["enable-aggregator-routing"] = "true"
+	argsMap["egress-selector-config-file"] = runtime.EgressSelectorConfig
 	argsMap["tls-cert-file"] = runtime.ServingKubeAPICert
 	argsMap["tls-private-key-file"] = runtime.ServingKubeAPIKey
 	argsMap["service-account-key-file"] = runtime.ServiceKey
@@ -194,6 +185,7 @@ func apiServer(ctx context.Context, cfg *config.Control) error {
 	argsMap["kubelet-certificate-authority"] = runtime.ServerCA
 	argsMap["kubelet-client-certificate"] = runtime.ClientKubeAPICert
 	argsMap["kubelet-client-key"] = runtime.ClientKubeAPIKey
+	argsMap["kubelet-preferred-address-types"] = "InternalIP,ExternalIP,Hostname"
 	argsMap["requestheader-client-ca-file"] = runtime.RequestHeaderCA
 	argsMap["requestheader-allowed-names"] = deps.RequestHeaderCN
 	argsMap["proxy-client-cert-file"] = runtime.ClientAuthProxyCert
@@ -261,6 +253,7 @@ func prepare(ctx context.Context, config *config.Control) error {
 		return err
 	}
 
+	os.MkdirAll(filepath.Join(config.DataDir, "etc"), 0700)
 	os.MkdirAll(filepath.Join(config.DataDir, "tls"), 0700)
 	os.MkdirAll(filepath.Join(config.DataDir, "cred"), 0700)
 
@@ -315,8 +308,7 @@ func cloudControllerManager(ctx context.Context, cfg *config.Control) error {
 		"authorization-kubeconfig":     runtime.KubeConfigCloudController,
 		"authentication-kubeconfig":    runtime.KubeConfigCloudController,
 		"node-status-update-frequency": "1m0s",
-		"bind-address":                 getLocalhostIP(cfg.ServiceIPRanges).String(),
-		"port":                         "0",
+		"bind-address":                 cfg.Loopback(false),
 	}
 	if cfg.NoLeaderElect {
 		argsMap["leader-elect"] = "false"
@@ -409,26 +401,6 @@ func waitForAPIServerHandlers(ctx context.Context, runtime *config.ControlRuntim
 }
 
 func waitForAPIServerInBackground(ctx context.Context, runtime *config.ControlRuntime) error {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", runtime.KubeConfigAdmin)
-	if err != nil {
-		return err
-	}
-
-	// By default, idle connections to the apiserver are returned to a global pool
-	// between requests.  Explicitly flag this client's request for closure so that
-	// we re-dial through the loadbalancer in case the endpoints have changed.
-	restConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			req.Close = true
-			return rt.RoundTrip(req)
-		})
-	})
-
-	k8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
 	done := make(chan struct{})
 	runtime.APIServerReady = done
 
@@ -452,7 +424,7 @@ func waitForAPIServerInBackground(ctx context.Context, runtime *config.ControlRu
 			select {
 			case <-ctx.Done():
 				return
-			case err := <-promise(func() error { return util.WaitForAPIServerReady(ctx, k8sClient, 30*time.Second) }):
+			case err := <-promise(func() error { return util.WaitForAPIServerReady(ctx, runtime.KubeConfigAdmin, 30*time.Second) }):
 				if err != nil {
 					logrus.Infof("Waiting for API server to become available")
 					continue

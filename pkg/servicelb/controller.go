@@ -33,20 +33,18 @@ import (
 )
 
 var (
+	finalizerName          = "svccontroller." + version.Program + ".cattle.io/daemonset"
 	svcNameLabel           = "svccontroller." + version.Program + ".cattle.io/svcname"
+	svcNamespaceLabel      = "svccontroller." + version.Program + ".cattle.io/svcnamespace"
 	daemonsetNodeLabel     = "svccontroller." + version.Program + ".cattle.io/enablelb"
 	daemonsetNodePoolLabel = "svccontroller." + version.Program + ".cattle.io/lbpool"
 	nodeSelectorLabel      = "svccontroller." + version.Program + ".cattle.io/nodeselector"
-	DefaultLBImage         = "rancher/klipper-lb:v0.3.4"
+	DefaultLBImage         = "rancher/klipper-lb:v0.3.5"
 )
 
 const (
 	Ready          = condition.Cond("Ready")
 	ControllerName = "svccontroller"
-)
-
-var (
-	trueVal = true
 )
 
 func Register(ctx context.Context,
@@ -58,19 +56,21 @@ func Register(ctx context.Context,
 	pods coreclient.PodController,
 	services coreclient.ServiceController,
 	endpoints coreclient.EndpointsController,
+	klipperLBNamespace string,
 	enabled, rootless bool) error {
 	h := &handler{
-		rootless:        rootless,
-		enabled:         enabled,
-		nodeCache:       nodes.Cache(),
-		podCache:        pods.Cache(),
-		deploymentCache: deployments.Cache(),
-		processor:       apply.WithSetID(ControllerName).WithCacheTypes(daemonSetController),
-		serviceCache:    services.Cache(),
-		services:        kubernetes.CoreV1(),
-		daemonsets:      kubernetes.AppsV1(),
-		deployments:     kubernetes.AppsV1(),
-		recorder:        util.BuildControllerEventRecorder(kubernetes, ControllerName, meta.NamespaceAll),
+		rootless:           rootless,
+		enabled:            enabled,
+		klipperLBNamespace: klipperLBNamespace,
+		nodeCache:          nodes.Cache(),
+		podCache:           pods.Cache(),
+		deploymentCache:    deployments.Cache(),
+		processor:          apply.WithSetID(ControllerName).WithCacheTypes(daemonSetController),
+		serviceCache:       services.Cache(),
+		services:           kubernetes.CoreV1(),
+		daemonsets:         kubernetes.AppsV1(),
+		deployments:        kubernetes.AppsV1(),
+		recorder:           util.BuildControllerEventRecorder(kubernetes, ControllerName, meta.NamespaceAll),
 	}
 
 	services.OnChange(ctx, ControllerName, h.onChangeService)
@@ -81,21 +81,41 @@ func Register(ctx context.Context,
 		pods,
 		endpoints)
 
+	if enabled {
+		if err := createServiceLBNamespace(ctx, h.klipperLBNamespace, kubernetes); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 type handler struct {
-	rootless        bool
-	enabled         bool
-	nodeCache       coreclient.NodeCache
-	podCache        coreclient.PodCache
-	deploymentCache appclient.DeploymentCache
-	processor       apply.Apply
-	serviceCache    coreclient.ServiceCache
-	services        coregetter.ServicesGetter
-	daemonsets      v1getter.DaemonSetsGetter
-	deployments     v1getter.DeploymentsGetter
-	recorder        record.EventRecorder
+	rootless           bool
+	klipperLBNamespace string
+	enabled            bool
+	nodeCache          coreclient.NodeCache
+	podCache           coreclient.PodCache
+	deploymentCache    appclient.DeploymentCache
+	processor          apply.Apply
+	serviceCache       coreclient.ServiceCache
+	services           coregetter.ServicesGetter
+	daemonsets         v1getter.DaemonSetsGetter
+	deployments        v1getter.DeploymentsGetter
+	recorder           record.EventRecorder
+}
+
+func createServiceLBNamespace(ctx context.Context, ns string, k8s kubernetes.Interface) error {
+	_, err := k8s.CoreV1().Namespaces().Get(ctx, ns, meta.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, err := k8s.CoreV1().Namespaces().Create(ctx, &core.Namespace{
+			ObjectMeta: meta.ObjectMeta{
+				Name: ns,
+			},
+		}, meta.CreateOptions{})
+		return err
+	}
+	return err
 }
 
 func (h *handler) onResourceChange(name, namespace string, obj runtime.Object) ([]relatedresource.Key, error) {
@@ -118,6 +138,11 @@ func (h *handler) onResourceChange(name, namespace string, obj runtime.Object) (
 		return nil, nil
 	}
 
+	serviceNamespace := pod.Labels[svcNamespaceLabel]
+	if serviceNamespace == "" {
+		return nil, nil
+	}
+
 	if pod.Status.PodIP == "" {
 		return nil, nil
 	}
@@ -125,7 +150,7 @@ func (h *handler) onResourceChange(name, namespace string, obj runtime.Object) (
 	return []relatedresource.Key{
 		{
 			Name:      serviceName,
-			Namespace: pod.Namespace,
+			Namespace: serviceNamespace,
 		},
 	}, nil
 }
@@ -134,12 +159,6 @@ func (h *handler) onResourceChange(name, namespace string, obj runtime.Object) (
 func (h *handler) onChangeService(key string, svc *core.Service) (*core.Service, error) {
 	if svc == nil {
 		return nil, nil
-	}
-
-	if svc.Spec.Type != core.ServiceTypeLoadBalancer || svc.Spec.ClusterIP == "" || svc.Spec.ClusterIP == "None" {
-		// If the Service type changes from LoadBalancer to something else, make sure we remove the DaemonSet
-		err := h.deletePod(svc)
-		return svc, err
 	}
 
 	if err := h.deployPod(svc); err != nil {
@@ -171,12 +190,13 @@ func (h *handler) onChangeNode(key string, node *core.Node) (*core.Node, error) 
 // updateService ensures that the Service ingress IP address list is in sync
 // with the Nodes actually running pods for this service.
 func (h *handler) updateService(svc *core.Service) (runtime.Object, error) {
-	if !h.enabled {
-		return svc, nil
+	if !h.enabled || svc.DeletionTimestamp != nil || svc.Spec.Type != core.ServiceTypeLoadBalancer {
+		return h.removeFinalizer(svc)
 	}
 
-	pods, err := h.podCache.List(svc.Namespace, labels.SelectorFromSet(map[string]string{
-		svcNameLabel: svc.Name,
+	pods, err := h.podCache.List(h.klipperLBNamespace, labels.SelectorFromSet(map[string]string{
+		svcNameLabel:      svc.Name,
+		svcNamespaceLabel: svc.Namespace,
 	}))
 
 	if err != nil {
@@ -197,6 +217,11 @@ func (h *handler) updateService(svc *core.Service) (runtime.Object, error) {
 	}
 
 	svc = svc.DeepCopy()
+	svc, err = h.addFinalizer(svc)
+	if err != nil {
+		return svc, err
+	}
+
 	svc.Status.LoadBalancer.Ingress = nil
 	for _, ip := range expectedIPs {
 		svc.Status.LoadBalancer.Ingress = append(svc.Status.LoadBalancer.Ingress, core.LoadBalancerIngress{
@@ -204,7 +229,7 @@ func (h *handler) updateService(svc *core.Service) (runtime.Object, error) {
 		})
 	}
 
-	h.recorder.Eventf(svc, core.EventTypeNormal, "UpdatedIngressIP", "LoadBalancer Ingress IP addresses updated: %s", strings.Join(expectedIPs, ", "))
+	defer h.recorder.Eventf(svc, core.EventTypeNormal, "UpdatedIngressIP", "LoadBalancer Ingress IP addresses updated: %s", strings.Join(expectedIPs, ", "))
 	return h.services.Services(svc.Namespace).UpdateStatus(context.TODO(), svc, meta.UpdateOptions{})
 }
 
@@ -282,7 +307,7 @@ func (h *handler) podIPs(pods []*core.Pod, svc *core.Service) ([]string, error) 
 
 // filterByIPFamily filters ips based on dual-stack parameters of the service
 func filterByIPFamily(ips []string, svc *core.Service) ([]string, error) {
-
+	var ipFamilyPolicy core.IPFamilyPolicyType
 	var ipv4Addresses []string
 	var ipv6Addresses []string
 
@@ -295,7 +320,11 @@ func filterByIPFamily(ips []string, svc *core.Service) ([]string, error) {
 		}
 	}
 
-	switch *svc.Spec.IPFamilyPolicy {
+	if svc.Spec.IPFamilyPolicy != nil {
+		ipFamilyPolicy = *svc.Spec.IPFamilyPolicy
+	}
+
+	switch ipFamilyPolicy {
 	case core.IPFamilyPolicySingleStack:
 		if svc.Spec.IPFamilies[0] == core.IPv4Protocol {
 			return ipv4Addresses, nil
@@ -329,47 +358,47 @@ func filterByIPFamily(ips []string, svc *core.Service) ([]string, error) {
 	return nil, errors.New("unhandled ipFamilyPolicy")
 }
 
-// deletePod ensures that there is not a DaemonSet for the service.
-func (h *handler) deletePod(svc *core.Service) error {
-	name := fmt.Sprintf("svclb-%s", svc.Name)
-	ds, err := h.daemonsets.DaemonSets(svc.Namespace).Get(context.TODO(), name, meta.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	h.recorder.Eventf(svc, core.EventTypeNormal, "DeletedDaemonSet", "Deleted LoadBalancer DaemonSet %s/%s", ds.Namespace, ds.Name)
-	objs := objectset.NewObjectSet()
-	return h.processor.WithOwner(svc).Apply(objs)
-}
-
 // deployPod ensures that there is a DaemonSet for the service.
 // It also ensures that any legacy Deployments from older versions of ServiceLB are deleted.
 func (h *handler) deployPod(svc *core.Service) error {
 	if err := h.deleteOldDeployments(svc); err != nil {
 		return err
 	}
-	objs := objectset.NewObjectSet()
-	if !h.enabled {
-		return h.processor.WithOwner(svc).Apply(objs)
+
+	if !h.enabled || svc.DeletionTimestamp != nil || svc.Spec.Type != core.ServiceTypeLoadBalancer || svc.Spec.ClusterIP == "" || svc.Spec.ClusterIP == "None" {
+		return h.deletePod(svc)
 	}
 
 	ds, err := h.newDaemonSet(svc)
 	if err != nil {
 		return err
 	}
+
+	objs := objectset.NewObjectSet()
 	if ds != nil {
 		objs.Add(ds)
-		h.recorder.Eventf(svc, core.EventTypeNormal, "AppliedDaemonSet", "Applied LoadBalancer DaemonSet %s/%s", ds.Namespace, ds.Name)
+		defer h.recorder.Eventf(svc, core.EventTypeNormal, "AppliedDaemonSet", "Applied LoadBalancer DaemonSet %s/%s", ds.Namespace, ds.Name)
 	}
 	return h.processor.WithOwner(svc).Apply(objs)
+}
+
+// deletePod ensures that there are no DaemonSets for the given service.
+func (h *handler) deletePod(svc *core.Service) error {
+	name := generateName(svc)
+	if err := h.daemonsets.DaemonSets(h.klipperLBNamespace).Delete(context.TODO(), name, meta.DeleteOptions{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	defer h.recorder.Eventf(svc, core.EventTypeNormal, "DeletedDaemonSet", "Deleted LoadBalancer DaemonSet %s/%s", h.klipperLBNamespace, name)
+	return nil
 }
 
 // newDaemonSet creates a DaemonSet to ensure that ServiceLB pods are run on
 // each eligible node.
 func (h *handler) newDaemonSet(svc *core.Service) (*apps.DaemonSet, error) {
-	name := fmt.Sprintf("svclb-%s", svc.Name)
+	name := generateName(svc)
 	oneInt := intstr.FromInt(1)
 
 	// If ipv6 is present, we must enable ipv6 forwarding in the manifest
@@ -383,18 +412,11 @@ func (h *handler) newDaemonSet(svc *core.Service) (*apps.DaemonSet, error) {
 	ds := &apps.DaemonSet{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      name,
-			Namespace: svc.Namespace,
-			OwnerReferences: []meta.OwnerReference{
-				{
-					Name:       svc.Name,
-					APIVersion: "v1",
-					Kind:       "Service",
-					UID:        svc.UID,
-					Controller: &trueVal,
-				},
-			},
+			Namespace: h.klipperLBNamespace,
 			Labels: map[string]string{
 				nodeSelectorLabel: "false",
+				svcNameLabel:      svc.Name,
+				svcNamespaceLabel: svc.Namespace,
 			},
 		},
 		TypeMeta: meta.TypeMeta{
@@ -410,8 +432,9 @@ func (h *handler) newDaemonSet(svc *core.Service) (*apps.DaemonSet, error) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: meta.ObjectMeta{
 					Labels: map[string]string{
-						"app":        name,
-						svcNameLabel: svc.Name,
+						"app":             name,
+						svcNameLabel:      svc.Name,
+						svcNamespaceLabel: svc.Namespace,
 					},
 				},
 				Spec: core.PodSpec{
@@ -561,4 +584,43 @@ func (h *handler) deleteOldDeployments(svc *core.Service) error {
 		return err
 	}
 	return h.deployments.Deployments(svc.Namespace).Delete(context.TODO(), name, meta.DeleteOptions{})
+}
+
+// addFinalizer ensures that there is a finalizer for this controller on the Service
+func (h *handler) addFinalizer(svc *core.Service) (*core.Service, error) {
+	if !h.hasFinalizer(svc) {
+		svc.Finalizers = append(svc.Finalizers, finalizerName)
+		return h.services.Services(svc.Namespace).Update(context.TODO(), svc, meta.UpdateOptions{})
+	}
+	return svc, nil
+}
+
+// removeFinalizer ensures that there is not a finalizer for this controller on the Service
+func (h *handler) removeFinalizer(svc *core.Service) (*core.Service, error) {
+	if !h.hasFinalizer(svc) {
+		return svc, nil
+	}
+
+	for k, v := range svc.Finalizers {
+		if v != finalizerName {
+			continue
+		}
+		svc.Finalizers = append(svc.Finalizers[:k], svc.Finalizers[k+1:]...)
+	}
+	return h.services.Services(svc.Namespace).Update(context.TODO(), svc, meta.UpdateOptions{})
+}
+
+// hasFinalizer returns a boolean indicating whether or not there is a finalizer for this controller on the Service
+func (h *handler) hasFinalizer(svc *core.Service) bool {
+	for _, finalizer := range svc.Finalizers {
+		if finalizer == finalizerName {
+			return true
+		}
+	}
+	return false
+}
+
+// generateName generates a distinct name for the DaemonSet based on the service name and UID
+func generateName(svc *core.Service) string {
+	return fmt.Sprintf("svclb-%s-%s", svc.Name, svc.UID[:8])
 }

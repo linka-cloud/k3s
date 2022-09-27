@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
+	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/k3s-io/k3s/pkg/agent/templates"
 	util2 "github.com/k3s-io/k3s/pkg/agent/util"
 	"github.com/k3s-io/k3s/pkg/cgroups"
@@ -24,6 +25,8 @@ import (
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/util"
 )
+
+const socketPrefix = "unix://"
 
 func getContainerdArgs(cfg *config.Node) []string {
 	args := []string{
@@ -45,19 +48,26 @@ func setupContainerdConfig(ctx context.Context, cfg *config.Node) error {
 	}
 
 	isRunningInUserNS := userns.RunningInUserNS()
-	_, _, hasCFS, hasPIDs := cgroups.CheckCgroups()
+	_, _, controllers := cgroups.CheckCgroups()
 	// "/sys/fs/cgroup" is namespaced
 	cgroupfsWritable := unix.Access("/sys/fs/cgroup", unix.W_OK) == nil
-	disableCgroup := isRunningInUserNS && (!hasCFS || !hasPIDs || !cgroupfsWritable)
+	disableCgroup := isRunningInUserNS && (!controllers["cpu"] || !controllers["pids"] || !cgroupfsWritable)
 	if disableCgroup {
 		logrus.Warn("cgroup v2 controllers are not delegated for rootless. Disabling cgroup.")
+	} else {
+		// note: this mutatation of the passed agent.Config is later used to set the
+		// kubelet's cgroup-driver flag. This may merit moving to somewhere else in order
+		// to avoid mutating the configuration while setting up containerd.
+		cfg.AgentConfig.Systemd = !isRunningInUserNS && controllers["cpuset"] && os.Getenv("INVOCATION_ID") != ""
 	}
 
 	var containerdTemplate string
 	containerdConfig := templates.ContainerdConfig{
 		NodeConfig:            cfg,
 		DisableCgroup:         disableCgroup,
+		SystemdCgroup:         cfg.AgentConfig.Systemd,
 		IsRunningInUserNS:     isRunningInUserNS,
+		EnableUnprivileged:    kernel.CheckKernelVersion(4, 11, 0),
 		PrivateRegistryConfig: privRegistries.Registry,
 		ExtraRuntimes:         findNvidiaContainerRuntimes(os.DirFS(string(os.PathSeparator))),
 	}
@@ -92,7 +102,7 @@ func setupContainerdConfig(ctx context.Context, cfg *config.Node) error {
 
 // criConnection connects to a CRI socket at the given path.
 func CriConnection(ctx context.Context, address string) (*grpc.ClientConn, error) {
-	addr, dialer, err := util.GetAddressAndDialer("unix://" + address)
+	addr, dialer, err := util.GetAddressAndDialer(socketPrefix + address)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +125,7 @@ func CriConnection(ctx context.Context, address string) (*grpc.ClientConn, error
 }
 
 func Client(address string) (*containerd.Client, error) {
-	addr, _, err := util.GetAddressAndDialer("unix://" + address)
+	addr, _, err := util.GetAddressAndDialer(socketPrefix + address)
 	if err != nil {
 		return nil, err
 	}

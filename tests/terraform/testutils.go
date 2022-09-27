@@ -1,4 +1,4 @@
-package e2e
+package terraform
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ type Node struct {
 	Name       string
 	Status     string
 	Roles      string
+	Version    string
 	InternalIP string
 	ExternalIP string
 }
@@ -36,10 +38,14 @@ var SSHKEY string
 var SSHUSER string
 var err error
 
+func GetBasepath() string {
+	_, b, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(b), "../..")
+}
+
 func checkError(e error) {
 	if e != nil {
-		log.Fatal(err)
-		panic(e)
+		log.Fatal(e)
 	}
 }
 
@@ -78,6 +84,10 @@ func runsshCommand(cmd string, conn *ssh.Client) (string, error) {
 	var stderrBuf bytes.Buffer
 	session.Stdout = &stdoutBuf
 	session.Stderr = &stderrBuf
+	if err := session.Run(cmd); err != nil {
+		log.Println(session.Stdout)
+		log.Fatal("Error on command execution", err.Error())
+	}
 	return fmt.Sprintf("%s", stdoutBuf.String()), err
 }
 
@@ -88,7 +98,6 @@ func runsshCommand(cmd string, conn *ssh.Client) (string, error) {
 // RunCmdOnNode executes a command from within the given node
 func RunCmdOnNode(cmd string, ServerIP string, SSHUser string, SSHKey string) (string, error) {
 	Server := ServerIP + ":22"
-	fmt.Println(Server, SSHUser, SSHKey)
 	conn := ConfigureSSH(Server, SSHUser, SSHKey)
 	res, err := runsshCommand(cmd, conn)
 	res = strings.TrimSpace(res)
@@ -102,7 +111,7 @@ func RunCommand(cmd string) (string, error) {
 	return string(out), err
 }
 
-//Used to count the pods using prefix passed in the list of pods
+// CountOfStringInSlice Used to count the pods using prefix passed in the list of pods
 func CountOfStringInSlice(str string, pods []Pod) int {
 	count := 0
 	for _, pod := range pods {
@@ -113,10 +122,10 @@ func CountOfStringInSlice(str string, pods []Pod) int {
 	return count
 }
 
-func DeployWorkload(workload, kubeconfig string, arch bool) (string, error) {
-	resourceDir := "./amd64_resource_files"
-	if arch {
-		resourceDir = "./arm64_resource_files"
+func DeployWorkload(workload, kubeconfig string, arch string) (string, error) {
+	resourceDir := GetBasepath() + "/tests/terraform/amd64_resource_files"
+	if arch == "arm64" {
+		resourceDir = GetBasepath() + "/tests/terraform/arm_resource_files"
 	}
 	files, err := ioutil.ReadDir(resourceDir)
 	if err != nil {
@@ -182,6 +191,7 @@ func ParseNodes(kubeConfig string, print bool) ([]Node, error) {
 				Name:       fields[0],
 				Status:     fields[1],
 				Roles:      fields[2],
+				Version:    fields[4],
 				InternalIP: fields[5],
 				ExternalIP: fields[6],
 			}

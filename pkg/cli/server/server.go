@@ -88,7 +88,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	}
 
 	if cfg.Token == "" && cfg.ClusterSecret != "" {
-		cfg.Token = cfg.ClusterSecret
+		logrus.Fatal("cluster-secret is deprecated. Use --token instead.")
 	}
 
 	agentReady := make(chan struct{})
@@ -115,12 +115,14 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	serverConfig.ControlConfig.KubeConfigOutput = cfg.KubeConfigOutput
 	serverConfig.ControlConfig.KubeConfigMode = cfg.KubeConfigMode
 	serverConfig.Rootless = cfg.Rootless
+	serverConfig.ServiceLBNamespace = cfg.ServiceLBNamespace
 	serverConfig.ControlConfig.SANs = cfg.TLSSan
 	serverConfig.ControlConfig.BindAddress = cfg.BindAddress
 	serverConfig.ControlConfig.SupervisorPort = cfg.SupervisorPort
 	serverConfig.ControlConfig.HTTPSPort = cfg.HTTPSPort
 	serverConfig.ControlConfig.APIServerPort = cfg.APIServerPort
 	serverConfig.ControlConfig.APIServerBindAddress = cfg.APIServerBindAddress
+	serverConfig.ControlConfig.EnablePProf = cfg.EnablePProf
 	serverConfig.ControlConfig.ExtraAPIArgs = cfg.ExtraAPIArgs
 	serverConfig.ControlConfig.ExtraControllerArgs = cfg.ExtraControllerArgs
 	serverConfig.ControlConfig.ExtraEtcdArgs = cfg.ExtraEtcdArgs
@@ -134,6 +136,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	serverConfig.ControlConfig.AdvertisePort = cfg.AdvertisePort
 	serverConfig.ControlConfig.FlannelBackend = cfg.FlannelBackend
 	serverConfig.ControlConfig.FlannelIPv6Masq = cfg.FlannelIPv6Masq
+	serverConfig.ControlConfig.EgressSelectorMode = cfg.EgressSelectorMode
 	serverConfig.ControlConfig.ExtraCloudControllerArgs = cfg.ExtraCloudControllerArgs
 	serverConfig.ControlConfig.DisableCCM = cfg.DisableCCM
 	serverConfig.ControlConfig.DisableNPC = cfg.DisableNPC
@@ -149,6 +152,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	serverConfig.ControlConfig.EtcdDisableSnapshots = cfg.EtcdDisableSnapshots
 
 	if !cfg.EtcdDisableSnapshots {
+		serverConfig.ControlConfig.EtcdSnapshotCompress = cfg.EtcdSnapshotCompress
 		serverConfig.ControlConfig.EtcdSnapshotName = cfg.EtcdSnapshotName
 		serverConfig.ControlConfig.EtcdSnapshotCron = cfg.EtcdSnapshotCron
 		serverConfig.ControlConfig.EtcdSnapshotDir = cfg.EtcdSnapshotDir
@@ -238,7 +242,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	if len(cmds.ServerConfig.ClusterCIDR) == 0 {
 		clusterCIDR := "10.42.0.0/16"
 		if IPv6only {
-			clusterCIDR = "fd:42::/56"
+			clusterCIDR = "fd00:42::/56"
 		}
 		cmds.ServerConfig.ClusterCIDR.Set(clusterCIDR)
 	}
@@ -264,7 +268,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	if len(cmds.ServerConfig.ServiceCIDR) == 0 {
 		serviceCIDR := "10.43.0.0/16"
 		if IPv6only {
-			serviceCIDR = "fd:43::/112"
+			serviceCIDR = "fd00:43::/112"
 		}
 		cmds.ServerConfig.ServiceCIDR.Set(serviceCIDR)
 	}
@@ -343,11 +347,8 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	}
 
 	serverConfig.ControlConfig.Skips = map[string]bool{}
-	for _, noDeploy := range app.StringSlice("no-deploy") {
-		for _, v := range strings.Split(noDeploy, ",") {
-			v = strings.TrimSpace(v)
-			serverConfig.ControlConfig.Skips[v] = true
-		}
+	if noDeploy := app.StringSlice("no-deploy"); len(noDeploy) > 0 {
+		logrus.Fatal("no-deploy flag is deprecated. Use --disable instead.")
 	}
 	serverConfig.ControlConfig.Disables = map[string]bool{}
 	for _, disable := range app.StringSlice("disable") {
@@ -400,14 +401,20 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		return errors.Wrap(err, "invalid tls-cipher-suites")
 	}
 
-	// make sure components are disabled so we only perform a restore
-	// and bail out
-	if cfg.ClusterResetRestorePath != "" && cfg.ClusterReset {
+	// If performing a cluster reset, make sure control-plane components are
+	// disabled so we only perform a reset or restore and bail out.
+	if cfg.ClusterReset {
 		serverConfig.ControlConfig.ClusterInit = true
 		serverConfig.ControlConfig.DisableAPIServer = true
 		serverConfig.ControlConfig.DisableControllerManager = true
 		serverConfig.ControlConfig.DisableScheduler = true
 		serverConfig.ControlConfig.DisableCCM = true
+
+		// If the supervisor and apiserver are on the same port, everything is running embedded
+		// and we don't need the kubelet or containerd up to perform a cluster reset.
+		if serverConfig.ControlConfig.SupervisorPort == serverConfig.ControlConfig.HTTPSPort {
+			cfg.DisableAgent = true
+		}
 
 		dataDir, err := datadir.LocalHome(cfg.DataDir, false)
 		if err != nil {
@@ -417,14 +424,16 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		loadbalancer.ResetLoadBalancer(filepath.Join(dataDir, "agent"), loadbalancer.SupervisorServiceName)
 		loadbalancer.ResetLoadBalancer(filepath.Join(dataDir, "agent"), loadbalancer.APIServerServiceName)
 
-		// at this point we're doing a restore. Check to see if we've
-		// passed in a token and if not, check if the token file exists.
-		// If it doesn't, return an error indicating the token is necessary.
-		if cfg.Token == "" {
-			tokenFile := filepath.Join(dataDir, "server", "token")
-			if _, err := os.Stat(tokenFile); err != nil {
-				if os.IsNotExist(err) {
-					return errors.New(tokenFile + " does not exist, please pass --token to complete the restoration")
+		if cfg.ClusterResetRestorePath != "" {
+			// at this point we're doing a restore. Check to see if we've
+			// passed in a token and if not, check if the token file exists.
+			// If it doesn't, return an error indicating the token is necessary.
+			if cfg.Token == "" {
+				tokenFile := filepath.Join(dataDir, "server", "token")
+				if _, err := os.Stat(tokenFile); err != nil {
+					if os.IsNotExist(err) {
+						return errors.New(tokenFile + " does not exist, please pass --token to complete the restoration")
+					}
 				}
 			}
 		}
@@ -433,6 +442,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	logrus.Info("Starting " + version.Program + " " + app.App.Version)
 
 	notifySocket := os.Getenv("NOTIFY_SOCKET")
+	os.Unsetenv("NOTIFY_SOCKET")
 
 	ctx := signals.SetupSignalContext()
 
@@ -444,30 +454,19 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		if !serverConfig.ControlConfig.DisableAPIServer {
 			<-serverConfig.ControlConfig.Runtime.APIServerReady
 			logrus.Info("Kube API server is now running")
-		} else {
+			serverConfig.ControlConfig.Runtime.StartupHooksWg.Wait()
+		}
+		if !serverConfig.ControlConfig.DisableETCD {
 			<-serverConfig.ControlConfig.Runtime.ETCDReady
 			logrus.Info("ETCD server is now running")
 		}
 
 		logrus.Info(version.Program + " is up and running")
-		if (cfg.DisableAgent || cfg.DisableAPIServer) && notifySocket != "" {
-			os.Setenv("NOTIFY_SOCKET", notifySocket)
-			systemd.SdNotify(true, "READY=1\n")
-		}
+		os.Setenv("NOTIFY_SOCKET", notifySocket)
+		systemd.SdNotify(true, "READY=1\n")
 	}()
 
-	ip := serverConfig.ControlConfig.BindAddress
-	if ip == "" {
-		ip = "127.0.0.1"
-		if IPv6only {
-			ip = "::1"
-		}
-	}
-	if utilsnet.IsIPv6String(ip) {
-		ip = fmt.Sprintf("[%s]", ip)
-	}
-
-	url := fmt.Sprintf("https://%s:%d", ip, serverConfig.ControlConfig.SupervisorPort)
+	url := fmt.Sprintf("https://%s:%d", serverConfig.ControlConfig.BindAddressOrLoopback(false, true), serverConfig.ControlConfig.SupervisorPort)
 	token, err := clientaccess.FormatToken(serverConfig.ControlConfig.Runtime.AgentToken, serverConfig.ControlConfig.Runtime.ServerCA)
 	if err != nil {
 		return err
@@ -531,11 +530,11 @@ func validateNetworkConfiguration(serverConfig server.Config) error {
 		return errors.New("dual-stack cluster-dns is not supported")
 	}
 
-	IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(serverConfig.ControlConfig.ServiceIPRanges)
-	if IPv6OnlyService {
-		if serverConfig.ControlConfig.DisableNPC == false {
-			return errors.New("network policy enforcement is not compatible with IPv6 only operation; server must be restarted with --disable-network-policy")
-		}
+	switch serverConfig.ControlConfig.EgressSelectorMode {
+	case config.EgressSelectorModeAgent, config.EgressSelectorModeCluster,
+		config.EgressSelectorModeDisabled, config.EgressSelectorModePod:
+	default:
+		return fmt.Errorf("invalid egress-selector-mode %s", serverConfig.ControlConfig.EgressSelectorMode)
 	}
 
 	return nil

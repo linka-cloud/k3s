@@ -242,7 +242,7 @@ sonobuoy-test() {
     sonobuoy run \
         --config=scripts/sonobuoy-config.json \
         --plugin-env=e2e.E2E_USE_GO_RUNNER=true \
-        --kube-conformance-image-version=${VERSION_K8S} \
+        --kubernetes-version=${VERSION_K8S} \
         --wait=90 \
         $@ &
 
@@ -325,7 +325,7 @@ test-setup() {
 
     SERVER_MINOR=$(awk -F. '{print $2}' <<<${K3S_IMAGE_SERVER:-$K3S_IMAGE})
     AGENT_MINOR=$(awk -F. '{print $2}' <<<${K3S_IMAGE_AGENT:-$K3S_IMAGE})
-    if [ $AGENT_MINOR -gt $SERVER_MINOR ]; then
+    if [ $NUM_AGENTS -gt 0 ] && [ $AGENT_MINOR -gt $SERVER_MINOR ]; then
         echo "Agent minor version cannot be newer than server - not supported by Kubernetes version skew policy"
         exit 0
     fi
@@ -509,7 +509,7 @@ export -f provision-cluster
 
 provision-registry-proxy() {
     set -e -o pipefail
-    local image="docker.io/library/registry:2.7.1"
+    local image="docker.io/library/registry:2.8.1"
     local prefix="docker-registry-"
     local registries="docker.io:registry-1.docker.io k8s.gcr.io gcr.io quay.io ghcr.io"
     local registries_yaml="$TEST_DIR/registries.yaml"

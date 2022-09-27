@@ -22,13 +22,14 @@ import (
 	"github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/passwd"
 	"github.com/k3s-io/k3s/pkg/token"
-	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	certutil "github.com/rancher/dynamiclistener/cert"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/apis/apiserver"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -136,6 +137,8 @@ func CreateRuntimeCertFiles(config *config.Control) {
 	runtime.ClientKubeletKey = filepath.Join(config.DataDir, "tls", "client-kubelet.key")
 	runtime.ServingKubeletKey = filepath.Join(config.DataDir, "tls", "serving-kubelet.key")
 
+	runtime.EgressSelectorConfig = filepath.Join(config.DataDir, "etc", "egress-selector-config.yaml")
+
 	runtime.ClientAuthProxyCert = filepath.Join(config.DataDir, "tls", "client-auth-proxy.crt")
 	runtime.ClientAuthProxyKey = filepath.Join(config.DataDir, "tls", "client-auth-proxy.key")
 
@@ -177,6 +180,10 @@ func GenServerDeps(config *config.Control) error {
 	}
 
 	if err := genEncryptionConfigAndState(config); err != nil {
+		return err
+	}
+
+	if err := genEgressSelectorConfig(config); err != nil {
 		return err
 	}
 
@@ -307,14 +314,9 @@ func genClientCerts(config *config.Control) error {
 
 	var certGen bool
 
-	IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(config.ServiceIPRanges)
-	ip := "127.0.0.1"
-	if IPv6OnlyService {
-		ip = "[::1]"
-	}
-	apiEndpoint := fmt.Sprintf("https://%s:%d", ip, config.APIServerPort)
+	apiEndpoint := fmt.Sprintf("https://%s:%d", config.Loopback(true), config.APIServerPort)
 
-	certGen, err = factory("system:admin", []string{"system:masters"}, runtime.ClientAdminCert, runtime.ClientAdminKey)
+	certGen, err = factory("system:admin", []string{user.SystemPrivilegedGroup}, runtime.ClientAdminCert, runtime.ClientAdminKey)
 	if err != nil {
 		return err
 	}
@@ -324,7 +326,7 @@ func genClientCerts(config *config.Control) error {
 		}
 	}
 
-	certGen, err = factory("system:kube-controller-manager", nil, runtime.ClientControllerCert, runtime.ClientControllerKey)
+	certGen, err = factory(user.KubeControllerManager, nil, runtime.ClientControllerCert, runtime.ClientControllerKey)
 	if err != nil {
 		return err
 	}
@@ -334,7 +336,7 @@ func genClientCerts(config *config.Control) error {
 		}
 	}
 
-	certGen, err = factory("system:kube-scheduler", nil, runtime.ClientSchedulerCert, runtime.ClientSchedulerKey)
+	certGen, err = factory(user.KubeScheduler, nil, runtime.ClientSchedulerCert, runtime.ClientSchedulerKey)
 	if err != nil {
 		return err
 	}
@@ -344,7 +346,7 @@ func genClientCerts(config *config.Control) error {
 		}
 	}
 
-	certGen, err = factory("kube-apiserver", nil, runtime.ClientKubeAPICert, runtime.ClientKubeAPIKey)
+	certGen, err = factory(user.APIServerUser, []string{user.SystemPrivilegedGroup}, runtime.ClientKubeAPICert, runtime.ClientKubeAPIKey)
 	if err != nil {
 		return err
 	}
@@ -354,7 +356,7 @@ func genClientCerts(config *config.Control) error {
 		}
 	}
 
-	if _, err = factory("system:kube-proxy", nil, runtime.ClientKubeProxyCert, runtime.ClientKubeProxyKey); err != nil {
+	if _, err = factory(user.KubeProxy, nil, runtime.ClientKubeProxyCert, runtime.ClientKubeProxyKey); err != nil {
 		return err
 	}
 	// This user (system:k3s-controller by default) must be bound to a role in rolebindings.yaml or the downstream equivalent
@@ -493,23 +495,22 @@ func addSANs(altNames *certutil.AltNames, sans []string) {
 	}
 }
 
-func sansChanged(certFile string, sans *certutil.AltNames) bool {
+func fieldsChanged(certFile string, commonName string, organization []string, sans *certutil.AltNames, caCertFile string) bool {
 	if sans == nil {
+		sans = &certutil.AltNames{}
+	}
+
+	certificates, err := certutil.CertsFromFile(certFile)
+	if err != nil || len(certificates) == 0 {
 		return false
 	}
 
-	certBytes, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return false
+	if certificates[0].Subject.CommonName != commonName {
+		return true
 	}
 
-	certificates, err := certutil.ParseCertsPEM(certBytes)
-	if err != nil {
-		return false
-	}
-
-	if len(certificates) == 0 {
-		return false
+	if !sets.NewString(certificates[0].Subject.Organization...).Equal(sets.NewString(organization...)) {
+		return true
 	}
 
 	if !sets.NewString(certificates[0].DNSNames...).HasAll(sans.DNSNames...) {
@@ -527,26 +528,32 @@ func sansChanged(certFile string, sans *certutil.AltNames) bool {
 		}
 	}
 
+	caCertificates, err := certutil.CertsFromFile(caCertFile)
+	if err != nil || len(caCertificates) == 0 {
+		return false
+	}
+
+	verifyOpts := x509.VerifyOptions{
+		Roots: x509.NewCertPool(),
+		KeyUsages: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageAny,
+		},
+	}
+
+	for _, cert := range caCertificates {
+		verifyOpts.Roots.AddCert(cert)
+	}
+
+	if _, err := certificates[0].Verify(verifyOpts); err != nil {
+		return true
+	}
+
 	return false
 }
 
 func createClientCertKey(regen bool, commonName string, organization []string, altNames *certutil.AltNames, extKeyUsage []x509.ExtKeyUsage, caCertFile, caKeyFile, certFile, keyFile string) (bool, error) {
-	caBytes, err := ioutil.ReadFile(caCertFile)
-	if err != nil {
-		return false, err
-	}
-
-	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(caBytes)
-
-	// check for certificate expiration
-	if !regen {
-		regen = expired(certFile, pool)
-	}
-
-	if !regen {
-		regen = sansChanged(certFile, altNames)
-	}
+	// check for reasons to renew the certificate even if not manually requested.
+	regen = regen || expired(certFile) || fieldsChanged(certFile, commonName, organization, altNames, caCertFile)
 
 	if !regen {
 		if exists(certFile, keyFile) {
@@ -554,17 +561,12 @@ func createClientCertKey(regen bool, commonName string, organization []string, a
 		}
 	}
 
-	caKeyBytes, err := ioutil.ReadFile(caKeyFile)
+	caKey, err := certutil.PrivateKeyFromFile(caKeyFile)
 	if err != nil {
 		return false, err
 	}
 
-	caKey, err := certutil.ParsePrivateKeyPEM(caKeyBytes)
-	if err != nil {
-		return false, err
-	}
-
-	caCert, err := certutil.ParseCertsPEM(caBytes)
+	caCert, err := certutil.CertsFromFile(caCertFile)
 	if err != nil {
 		return false, err
 	}
@@ -648,23 +650,10 @@ func createSigningCertKey(prefix, certFile, keyFile string) (bool, error) {
 	return true, nil
 }
 
-func expired(certFile string, pool *x509.CertPool) bool {
-	certBytes, err := ioutil.ReadFile(certFile)
+func expired(certFile string) bool {
+	certificates, err := certutil.CertsFromFile(certFile)
 	if err != nil {
 		return false
-	}
-	certificates, err := certutil.ParseCertsPEM(certBytes)
-	if err != nil {
-		return false
-	}
-	_, err = certificates[0].Verify(x509.VerifyOptions{
-		Roots: pool,
-		KeyUsages: []x509.ExtKeyUsage{
-			x509.ExtKeyUsageAny,
-		},
-	})
-	if err != nil {
-		return true
 	}
 	return certutil.IsCertExpired(certificates[0], config.CertificateRenewDays)
 }
@@ -731,4 +720,47 @@ func genEncryptionConfigAndState(controlConfig *config.Control) error {
 	encryptionConfigHash := sha256.Sum256(b)
 	ann := "start-" + hex.EncodeToString(encryptionConfigHash[:])
 	return ioutil.WriteFile(controlConfig.Runtime.EncryptionHash, []byte(ann), 0600)
+}
+
+func genEgressSelectorConfig(controlConfig *config.Control) error {
+	var clusterConn apiserver.Connection
+
+	if controlConfig.EgressSelectorMode == config.EgressSelectorModeDisabled {
+		clusterConn = apiserver.Connection{
+			ProxyProtocol: apiserver.ProtocolDirect,
+		}
+	} else {
+		clusterConn = apiserver.Connection{
+			ProxyProtocol: apiserver.ProtocolHTTPConnect,
+			Transport: &apiserver.Transport{
+				TCP: &apiserver.TCPTransport{
+					URL: fmt.Sprintf("https://%s:%d", controlConfig.BindAddressOrLoopback(false, true), controlConfig.SupervisorPort),
+					TLSConfig: &apiserver.TLSConfig{
+						CABundle:   controlConfig.Runtime.ServerCA,
+						ClientKey:  controlConfig.Runtime.ClientKubeAPIKey,
+						ClientCert: controlConfig.Runtime.ClientKubeAPICert,
+					},
+				},
+			},
+		}
+	}
+
+	egressConfig := apiserver.EgressSelectorConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "EgressSelectorConfiguration",
+			APIVersion: "apiserver.k8s.io/v1beta1",
+		},
+		EgressSelections: []apiserver.EgressSelection{
+			{
+				Name:       "cluster",
+				Connection: clusterConn,
+			},
+		},
+	}
+
+	b, err := json.Marshal(egressConfig)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(controlConfig.Runtime.EgressSelectorConfig, b, 0600)
 }

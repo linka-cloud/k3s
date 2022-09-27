@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	net2 "net"
 	"os"
 	"path"
 	"path/filepath"
@@ -35,8 +34,6 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/net"
-	utilsnet "k8s.io/utils/net"
 )
 
 const (
@@ -67,6 +64,8 @@ func StartServer(ctx context.Context, config *Config, cfg *cmds.Server) error {
 	wg.Add(len(config.StartupHooks))
 
 	config.ControlConfig.Runtime.Handler = router(ctx, config, cfg)
+	config.ControlConfig.Runtime.StartupHooksWg = wg
+
 	shArgs := cmds.StartupHookArgs{
 		APIServerReady:  config.ControlConfig.Runtime.APIServerReady,
 		KubeConfigAdmin: config.ControlConfig.Runtime.KubeConfigAdmin,
@@ -82,43 +81,28 @@ func StartServer(ctx context.Context, config *Config, cfg *cmds.Server) error {
 	if config.ControlConfig.DisableAPIServer {
 		go setETCDLabelsAndAnnotations(ctx, config)
 	} else {
-		go startOnAPIServerReady(ctx, wg, config)
+		go startOnAPIServerReady(ctx, config)
 	}
 
-	ip := net2.ParseIP(config.ControlConfig.BindAddress)
-	if ip == nil {
-		hostIP, err := net.ChooseHostInterface()
-		if err == nil {
-			ip = hostIP
-		} else {
-			IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(config.ControlConfig.ServiceIPRanges)
-			if IPv6OnlyService {
-				ip = net2.ParseIP("::1")
-			} else {
-				ip = net2.ParseIP("127.0.0.1")
-			}
-		}
-	}
-
-	if err := printTokens(ip.String(), &config.ControlConfig); err != nil {
+	if err := printTokens(&config.ControlConfig); err != nil {
 		return err
 	}
 
 	return writeKubeConfig(config.ControlConfig.Runtime.ServerCA, config)
 }
 
-func startOnAPIServerReady(ctx context.Context, wg *sync.WaitGroup, config *Config) {
+func startOnAPIServerReady(ctx context.Context, config *Config) {
 	select {
 	case <-ctx.Done():
 		return
 	case <-config.ControlConfig.Runtime.APIServerReady:
-		if err := runControllers(ctx, wg, config); err != nil {
+		if err := runControllers(ctx, config); err != nil {
 			logrus.Fatalf("failed to start controllers: %v", err)
 		}
 	}
 }
 
-func runControllers(ctx context.Context, wg *sync.WaitGroup, config *Config) error {
+func runControllers(ctx context.Context, config *Config) error {
 	controlConfig := &config.ControlConfig
 
 	sc, err := NewContext(ctx, controlConfig.Runtime.KubeConfigAdmin)
@@ -126,7 +110,7 @@ func runControllers(ctx context.Context, wg *sync.WaitGroup, config *Config) err
 		return errors.Wrap(err, "failed to create new server context")
 	}
 
-	wg.Wait()
+	controlConfig.Runtime.StartupHooksWg.Wait()
 	if err := stageFiles(ctx, sc, controlConfig); err != nil {
 		return errors.Wrap(err, "failed to stage files")
 	}
@@ -230,6 +214,7 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 		sc.Core.Core().V1().Pod(),
 		sc.Core.Core().V1().Service(),
 		sc.Core.Core().V1().Endpoints(),
+		config.ServiceLBNamespace,
 		!config.DisableServiceLB,
 		config.Rootless); err != nil {
 		return err
@@ -328,25 +313,12 @@ func HomeKubeConfig(write, rootless bool) (string, error) {
 	return resolvehome.Resolve(datadir.HomeConfig)
 }
 
-func printTokens(advertiseIP string, config *config.Control) error {
-	var (
-		nodeFile string
-	)
-
-	if advertiseIP == "" {
-		IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(config.ServiceIPRanges)
-		if IPv6OnlyService {
-			advertiseIP = "::1"
-		} else {
-			advertiseIP = "127.0.0.1"
-		}
-	}
-
-	if len(config.Runtime.ServerToken) > 0 {
-		p := filepath.Join(config.DataDir, "token")
-		if err := writeToken(config.Runtime.ServerToken, p, config.Runtime.ServerCA); err == nil {
-			logrus.Infof("Node token is available at %s", p)
-			nodeFile = p
+func printTokens(config *config.Control) error {
+	var serverTokenFile string
+	if config.Runtime.ServerToken != "" {
+		serverTokenFile = filepath.Join(config.DataDir, "token")
+		if err := writeToken(config.Runtime.ServerToken, serverTokenFile, config.Runtime.ServerCA); err != nil {
+			return err
 		}
 
 		// backwards compatibility
@@ -355,40 +327,54 @@ func printTokens(advertiseIP string, config *config.Control) error {
 			if err := os.RemoveAll(np); err != nil {
 				return err
 			}
-			if err := os.Symlink(p, np); err != nil {
+			if err := os.Symlink(serverTokenFile, np); err != nil {
 				return err
+			}
+		}
+
+		logrus.Infof("Server node token is available at %s", serverTokenFile)
+		printToken(config.SupervisorPort, config.BindAddressOrLoopback(true, true), "To join server node to cluster:", "server", "SERVER_NODE_TOKEN")
+	}
+
+	var agentTokenFile string
+	if config.Runtime.AgentToken != "" {
+		if config.AgentToken != "" {
+			agentTokenFile = filepath.Join(config.DataDir, "agent-token")
+			if isSymlink(agentTokenFile) {
+				if err := os.RemoveAll(agentTokenFile); err != nil {
+					return err
+				}
+			}
+			if err := writeToken(config.Runtime.AgentToken, agentTokenFile, config.Runtime.ServerCA); err != nil {
+				return err
+			}
+		} else if serverTokenFile != "" {
+			agentTokenFile = filepath.Join(config.DataDir, "agent-token")
+			if !isSymlink(agentTokenFile) {
+				if err := os.RemoveAll(agentTokenFile); err != nil {
+					return err
+				}
+				if err := os.Symlink(serverTokenFile, agentTokenFile); err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	if len(nodeFile) > 0 {
-		printToken(config.SupervisorPort, advertiseIP, "To join node to cluster:", "agent")
+	if agentTokenFile != "" {
+		logrus.Infof("Agent node token is available at %s", agentTokenFile)
+		printToken(config.SupervisorPort, config.BindAddressOrLoopback(true, true), "To join agent node to cluster:", "agent", "AGENT_NODE_TOKEN")
 	}
 
 	return nil
 }
 
 func writeKubeConfig(certs string, config *Config) error {
-	ip := config.ControlConfig.BindAddress
-	if ip == "" {
-		IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(config.ControlConfig.ServiceIPRanges)
-		if IPv6OnlyService {
-			ip = "[::1]"
-		} else {
-			ip = "127.0.0.1"
-		}
-	} else if utilsnet.IsIPv6String(ip) {
-		ip = fmt.Sprintf("[%s]", ip)
-	}
+	ip := config.ControlConfig.BindAddressOrLoopback(false, true)
 	port := config.ControlConfig.HTTPSPort
 	// on servers without a local apiserver, tunnel access via the loadbalancer
 	if config.ControlConfig.DisableAPIServer {
-		IPv6OnlyService, _ := util.IsIPv6OnlyCIDRs(config.ControlConfig.ServiceIPRanges)
-		if IPv6OnlyService {
-			ip = "[::1]"
-		} else {
-			ip = "127.0.0.1"
-		}
+		ip = config.ControlConfig.Loopback(true)
 		port = config.ControlConfig.APIServerPort
 	}
 	url := fmt.Sprintf("https://%s:%d", ip, port)
@@ -464,19 +450,8 @@ func setupDataDirAndChdir(config *config.Control) error {
 	return nil
 }
 
-func printToken(httpsPort int, advertiseIP, prefix, cmd string) {
-	ip := advertiseIP
-	if ip == "" {
-		hostIP, err := net.ChooseHostInterface()
-		if err != nil {
-			logrus.Errorf("Failed to choose interface: %v", err)
-		}
-		ip = hostIP.String()
-	} else if utilsnet.IsIPv6String(ip) {
-		ip = fmt.Sprintf("[%s]", ip)
-	}
-
-	logrus.Infof("%s %s %s -s https://%s:%d -t ${NODE_TOKEN}", prefix, version.Program, cmd, ip, httpsPort)
+func printToken(httpsPort int, advertiseIP, prefix, cmd, varName string) {
+	logrus.Infof("%s %s %s -s https://%s:%d -t ${%s}", prefix, version.Program, cmd, advertiseIP, httpsPort, varName)
 }
 
 func writeToken(token, file, certs string) error {

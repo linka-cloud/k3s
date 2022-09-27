@@ -11,6 +11,7 @@ import (
 	coreclient "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/pager"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -57,7 +59,7 @@ func Register(
 }
 
 // onChangeNode handles changes to Nodes. We are looking for a specific annotation change
-func (h *handler) onChangeNode(key string, node *corev1.Node) (*corev1.Node, error) {
+func (h *handler) onChangeNode(nodeName string, node *corev1.Node) (*corev1.Node, error) {
 	if node == nil {
 		return nil, nil
 	}
@@ -89,8 +91,16 @@ func (h *handler) onChangeNode(key string, node *corev1.Node) (*corev1.Node, err
 		return node, err
 	}
 	ann = EncryptionReencryptActive + "-" + reencryptHash
-	node.Annotations[EncryptionHashAnnotation] = ann
-	node, err = h.nodes.Update(node)
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		node, err = h.nodes.Get(nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		node.Annotations[EncryptionHashAnnotation] = ann
+		_, err = h.nodes.Update(node)
+		return err
+	})
 	if err != nil {
 		h.recorder.Event(nodeRef, corev1.EventTypeWarning, secretsUpdateErrorEvent, err.Error())
 		return node, err
@@ -103,11 +113,16 @@ func (h *handler) onChangeNode(key string, node *corev1.Node) (*corev1.Node, err
 
 	// If skipping, revert back to the previous stage
 	if h.controlConfig.EncryptSkip {
-		BootstrapEncryptionHashAnnotation(node, h.controlConfig.Runtime)
-		if node, err := h.nodes.Update(node); err != nil {
-			return node, err
-		}
-		return node, nil
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			node, err = h.nodes.Get(nodeName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			BootstrapEncryptionHashAnnotation(node, h.controlConfig.Runtime)
+			_, err = h.nodes.Update(node)
+			return err
+		})
+		return node, err
 	}
 
 	// Remove last key
@@ -127,7 +142,14 @@ func (h *handler) onChangeNode(key string, node *corev1.Node) (*corev1.Node, err
 		h.recorder.Event(nodeRef, corev1.EventTypeWarning, secretsUpdateErrorEvent, err.Error())
 		return node, err
 	}
-	if err := WriteEncryptionHashAnnotation(h.controlConfig.Runtime, node, EncryptionReencryptFinished); err != nil {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		node, err = h.nodes.Get(nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		return WriteEncryptionHashAnnotation(h.controlConfig.Runtime, node, EncryptionReencryptFinished)
+	})
+	if err != nil {
 		h.recorder.Event(nodeRef, corev1.EventTypeWarning, secretsUpdateErrorEvent, err.Error())
 		return node, err
 	}
@@ -194,8 +216,12 @@ func (h *handler) updateSecrets(node *corev1.Node) error {
 	secretPager := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
 		return h.secrets.List("", opts)
 	}))
+	secretsList, _, err := secretPager.List(h.ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
 	i := 0
-	secretPager.EachListItem(h.ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
+	err = meta.EachListItem(secretsList, func(obj runtime.Object) error {
 		if secret, ok := obj.(*corev1.Secret); ok {
 			if _, err := h.secrets.Update(secret); err != nil {
 				return fmt.Errorf("failed to reencrypted secret: %v", err)
@@ -207,6 +233,9 @@ func (h *handler) updateSecrets(node *corev1.Node) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 	h.recorder.Eventf(nodeRef, corev1.EventTypeNormal, secretsUpdateCompleteEvent, "completed reencrypt of %d secrets", i)
 	return nil
 }

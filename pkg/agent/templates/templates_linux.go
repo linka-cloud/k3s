@@ -1,4 +1,4 @@
-// +build linux
+//go:build linux
 
 package templates
 
@@ -15,6 +15,8 @@ const ContainerdConfigTemplate = `
   stream_server_address = "127.0.0.1"
   stream_server_port = "10010"
   enable_selinux = {{ .NodeConfig.SELinux }}
+  enable_unprivileged_ports = {{ .EnableUnprivileged }}
+  enable_unprivileged_icmp = {{ .EnableUnprivileged }}
 
 {{- if .DisableCgroup}}
   disable_cgroup = true
@@ -80,6 +82,9 @@ enable_keychain = true
 
 [plugins.cri.containerd.runtimes.runc]
   runtime_type = "io.containerd.runc.v2"
+
+[plugins.cri.containerd.runtimes.runc.options]
+	SystemdCgroup = {{ .SystemdCgroup }}
 
 {{ if .PrivateRegistryConfig }}
 {{ if .PrivateRegistryConfig.Mirrors }}
