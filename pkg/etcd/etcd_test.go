@@ -12,9 +12,7 @@ import (
 
 	"github.com/k3s-io/k3s/pkg/clientaccess"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/etcd/s3"
 	testutil "github.com/k3s-io/k3s/tests"
-	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -244,8 +242,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 		config  *config.Control
 		name    string
 		address string
-		cron    *cron.Cron
-		s3      *s3.Controller
 	}
 	type args struct {
 		clientAccessInfo *clientaccess.Info
@@ -292,7 +288,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  generateTestConfig(),
 				address: mustGetAddress(),
 				name:    "default",
-				cron:    cron.New(),
 			},
 			args: args{
 				clientAccessInfo: nil,
@@ -320,7 +315,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  generateTestConfig(),
 				address: mustGetAddress(),
 				name:    "default",
-				cron:    cron.New(),
 			},
 			args: args{
 				clientAccessInfo: nil,
@@ -353,8 +347,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  tt.fields.config,
 				name:    tt.fields.name,
 				address: tt.fields.address,
-				cron:    tt.fields.cron,
-				s3:      tt.fields.s3,
 			}
 
 			if err := tt.setup(e, &tt.fields.context); err != nil {

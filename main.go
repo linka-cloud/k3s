@@ -1,4 +1,3 @@
-//go:generate go run pkg/codegen/cleanup/main.go
 //go:generate rm -rf pkg/generated
 //go:generate go run pkg/codegen/main.go
 //go:generate go fmt pkg/deploy/zz_generated_bindata.go
@@ -16,7 +15,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/cli/completion"
 	"github.com/k3s-io/k3s/pkg/cli/crictl"
-	"github.com/k3s-io/k3s/pkg/cli/etcdsnapshot"
 	"github.com/k3s-io/k3s/pkg/cli/kubectl"
 	"github.com/k3s-io/k3s/pkg/cli/secretsencrypt"
 	"github.com/k3s-io/k3s/pkg/cli/server"
@@ -32,12 +30,6 @@ func main() {
 		cmds.NewAgentCommand(agent.Run),
 		cmds.NewKubectlCommand(kubectl.Run),
 		cmds.NewCRICTL(crictl.Run),
-		cmds.NewEtcdSnapshotCommands(
-			etcdsnapshot.Delete,
-			etcdsnapshot.List,
-			etcdsnapshot.Prune,
-			etcdsnapshot.Save,
-		),
 		cmds.NewSecretsEncryptCommands(
 			secretsencrypt.Status,
 			secretsencrypt.Enable,

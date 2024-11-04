@@ -3,10 +3,7 @@ package main
 import (
 	"os"
 
-	bindata "github.com/go-bindata/go-bindata"
-	v1 "github.com/k3s-io/k3s/pkg/apis/k3s.cattle.io/v1"
-	controllergen "github.com/rancher/wrangler/v3/pkg/controller-gen"
-	"github.com/rancher/wrangler/v3/pkg/controller-gen/args"
+	"github.com/go-bindata/go-bindata"
 	"github.com/sirupsen/logrus"
 )
 
@@ -66,19 +63,4 @@ func main() {
 	if err := bindata.Translate(bc); err != nil {
 		logrus.Fatal(err)
 	}
-
-	controllergen.Run(args.Options{
-		OutputPackage: "github.com/k3s-io/k3s/pkg/generated",
-		Boilerplate:   "scripts/boilerplate.go.txt",
-		Groups: map[string]args.Group{
-			"k3s.cattle.io": {
-				Types: []interface{}{
-					v1.Addon{},
-					v1.ETCDSnapshotFile{},
-				},
-				GenerateTypes:   true,
-				GenerateClients: true,
-			},
-		},
-	})
 }

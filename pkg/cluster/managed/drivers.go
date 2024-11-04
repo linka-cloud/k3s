@@ -21,10 +21,7 @@ type Driver interface {
 	ResetFile() string
 	Start(ctx context.Context, clientAccessInfo *clientaccess.Info) error
 	Test(ctx context.Context) error
-	Restore(ctx context.Context) error
 	EndpointName() string
-	Snapshot(ctx context.Context) (*SnapshotResult, error)
-	ReconcileSnapshotData(ctx context.Context) error
 	GetMembersClientURLs(ctx context.Context) ([]string, error)
 	RemoveSelf(ctx context.Context) error
 }

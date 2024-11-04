@@ -42,7 +42,6 @@ func main() {
 	}
 
 	tokenCommand := internalCLIAction(version.Program+"-"+cmds.TokenCommand, dataDir, os.Args)
-	etcdsnapshotCommand := internalCLIAction(version.Program+"-"+cmds.EtcdSnapshotCommand, dataDir, os.Args)
 	secretsencryptCommand := internalCLIAction(version.Program+"-"+cmds.SecretsEncryptCommand, dataDir, os.Args)
 	certCommand := internalCLIAction(version.Program+"-"+cmds.CertCommand, dataDir, os.Args)
 
@@ -62,12 +61,6 @@ func main() {
 			tokenCommand,
 			tokenCommand,
 			tokenCommand,
-		),
-		cmds.NewEtcdSnapshotCommands(
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
 		),
 		cmds.NewSecretsEncryptCommands(
 			secretsencryptCommand,

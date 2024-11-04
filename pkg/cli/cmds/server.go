@@ -3,7 +3,6 @@ package cmds
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/urfave/cli"
 
@@ -88,27 +87,7 @@ type Server struct {
 	SystemDefaultRegistry    string
 	StartupHooks             []StartupHook
 	SupervisorMetrics        bool
-	EtcdSnapshotName         string
-	EtcdDisableSnapshots     bool
 	EtcdExposeMetrics        bool
-	EtcdSnapshotDir          string
-	EtcdSnapshotCron         string
-	EtcdSnapshotRetention    int
-	EtcdSnapshotCompress     bool
-	EtcdListFormat           string
-	EtcdS3                   bool
-	EtcdS3Endpoint           string
-	EtcdS3EndpointCA         string
-	EtcdS3SkipSSLVerify      bool
-	EtcdS3AccessKey          string
-	EtcdS3SecretKey          string
-	EtcdS3BucketName         string
-	EtcdS3Region             string
-	EtcdS3Folder             string
-	EtcdS3Proxy              string
-	EtcdS3ConfigSecret       string
-	EtcdS3Timeout            time.Duration
-	EtcdS3Insecure           bool
 	ServiceLBNamespace       string
 }
 
@@ -351,109 +330,6 @@ var ServerFlags = []cli.Flag{
 		Name:        "etcd-expose-metrics",
 		Usage:       "(db) Expose etcd metrics to client interface. (default: false)",
 		Destination: &ServerConfig.EtcdExposeMetrics,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-disable-snapshots",
-		Usage:       "(db) Disable automatic etcd snapshots",
-		Destination: &ServerConfig.EtcdDisableSnapshots,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-name",
-		Usage:       "(db) Set the base name of etcd snapshots (default: etcd-snapshot-<unix-timestamp>)",
-		Destination: &ServerConfig.EtcdSnapshotName,
-		Value:       "etcd-snapshot",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-schedule-cron",
-		Usage:       "(db) Snapshot interval time in cron spec. eg. every 5 hours '0 */5 * * *'",
-		Destination: &ServerConfig.EtcdSnapshotCron,
-		Value:       "0 */12 * * *",
-	},
-	&cli.IntFlag{
-		Name:        "etcd-snapshot-retention",
-		Usage:       "(db) Number of snapshots to retain",
-		Destination: &ServerConfig.EtcdSnapshotRetention,
-		Value:       defaultSnapshotRentention,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-dir",
-		Usage:       "(db) Directory to save db snapshots. (default: ${data-dir}/db/snapshots)",
-		Destination: &ServerConfig.EtcdSnapshotDir,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-snapshot-compress",
-		Usage:       "(db) Compress etcd snapshot",
-		Destination: &ServerConfig.EtcdSnapshotCompress,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3",
-		Usage:       "(db) Enable backup to S3",
-		Destination: &ServerConfig.EtcdS3,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-endpoint",
-		Usage:       "(db) S3 endpoint url",
-		Destination: &ServerConfig.EtcdS3Endpoint,
-		Value:       "s3.amazonaws.com",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-endpoint-ca",
-		Usage:       "(db) S3 custom CA cert to connect to S3 endpoint",
-		Destination: &ServerConfig.EtcdS3EndpointCA,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3-skip-ssl-verify",
-		Usage:       "(db) Disables S3 SSL certificate validation",
-		Destination: &ServerConfig.EtcdS3SkipSSLVerify,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-access-key",
-		Usage:       "(db) S3 access key",
-		EnvVar:      "AWS_ACCESS_KEY_ID",
-		Destination: &ServerConfig.EtcdS3AccessKey,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-secret-key",
-		Usage:       "(db) S3 secret key",
-		EnvVar:      "AWS_SECRET_ACCESS_KEY",
-		Destination: &ServerConfig.EtcdS3SecretKey,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-bucket",
-		Usage:       "(db) S3 bucket name",
-		Destination: &ServerConfig.EtcdS3BucketName,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-region",
-		Usage:       "(db) S3 region / bucket location (optional)",
-		Destination: &ServerConfig.EtcdS3Region,
-		Value:       "us-east-1",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-folder",
-		Usage:       "(db) S3 folder",
-		Destination: &ServerConfig.EtcdS3Folder,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-proxy",
-		Usage:       "(db) Proxy server to use when connecting to S3, overriding any proxy-releated environment variables",
-		Destination: &ServerConfig.EtcdS3Proxy,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-config-secret",
-		Usage:       "(db) Name of secret in the kube-system namespace used to configure S3, if etcd-s3 is enabled and no other etcd-s3 options are set",
-		Destination: &ServerConfig.EtcdS3ConfigSecret,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3-insecure",
-		Usage:       "(db) Disables S3 over HTTPS",
-		Destination: &ServerConfig.EtcdS3Insecure,
-	},
-	&cli.DurationFlag{
-		Name:        "etcd-s3-timeout",
-		Usage:       "(db) S3 timeout",
-		Destination: &ServerConfig.EtcdS3Timeout,
-		Value:       5 * time.Minute,
 	},
 	&cli.StringFlag{
 		Name:        "default-local-storage-path",
