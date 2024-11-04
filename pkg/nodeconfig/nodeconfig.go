@@ -140,8 +140,6 @@ func isSecret(key string) bool {
 		"-t",
 		"--agent-token",
 		"--datastore-endpoint",
-		"--etcd-s3-access-key",
-		"--etcd-s3-secret-key",
 		"--vpn-auth",
 	}
 	for _, secret := range secretData {

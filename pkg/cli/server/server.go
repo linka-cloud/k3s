@@ -34,7 +34,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	kubeapiserverflag "k8s.io/component-base/cli/flag"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/options"
@@ -176,46 +175,9 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	serverConfig.ControlConfig.EncryptSecrets = cfg.EncryptSecrets
 	serverConfig.ControlConfig.EncryptProvider = cfg.EncryptProvider
 	serverConfig.ControlConfig.EtcdExposeMetrics = cfg.EtcdExposeMetrics
-	serverConfig.ControlConfig.EtcdDisableSnapshots = cfg.EtcdDisableSnapshots
 	serverConfig.ControlConfig.SupervisorMetrics = cfg.SupervisorMetrics
 	serverConfig.ControlConfig.VLevel = cmds.LogConfig.VLevel
 	serverConfig.ControlConfig.VModule = cmds.LogConfig.VModule
-
-	if !cfg.EtcdDisableSnapshots || cfg.ClusterReset {
-		if cfg.EtcdSnapshotReconcile <= 0 {
-			return errors.New("etcd-snapshot-reconcile-interval must be greater than 0s")
-		}
-		serverConfig.ControlConfig.EtcdSnapshotCompress = cfg.EtcdSnapshotCompress
-		serverConfig.ControlConfig.EtcdSnapshotName = cfg.EtcdSnapshotName
-		serverConfig.ControlConfig.EtcdSnapshotCron = cfg.EtcdSnapshotCron
-		serverConfig.ControlConfig.EtcdSnapshotDir = cfg.EtcdSnapshotDir
-		serverConfig.ControlConfig.EtcdSnapshotReconcile = metav1.Duration{Duration: cfg.EtcdSnapshotReconcile}
-		serverConfig.ControlConfig.EtcdSnapshotRetention = cfg.EtcdSnapshotRetention
-		if cfg.EtcdS3 {
-			if cfg.EtcdS3Timeout <= 0 {
-				return errors.New("etcd-s3-timeout must be greater than 0s")
-			}
-			serverConfig.ControlConfig.EtcdS3 = &config.EtcdS3{
-				AccessKey:     cfg.EtcdS3AccessKey,
-				Bucket:        cfg.EtcdS3BucketName,
-				BucketLookup:  cfg.EtcdS3BucketLookupType,
-				ConfigSecret:  cfg.EtcdS3ConfigSecret,
-				Endpoint:      cfg.EtcdS3Endpoint,
-				EndpointCA:    cfg.EtcdS3EndpointCA,
-				Folder:        cfg.EtcdS3Folder,
-				Insecure:      cfg.EtcdS3Insecure,
-				Proxy:         cfg.EtcdS3Proxy,
-				Region:        cfg.EtcdS3Region,
-				SecretKey:     cfg.EtcdS3SecretKey,
-				SessionToken:  cfg.EtcdS3SessionToken,
-				SkipSSLVerify: cfg.EtcdS3SkipSSLVerify,
-				Retention:     cfg.EtcdS3Retention,
-				Timeout:       metav1.Duration{Duration: cfg.EtcdS3Timeout},
-			}
-		}
-	} else {
-		logrus.Info("ETCD snapshots are disabled")
-	}
 
 	if cfg.ClusterResetRestorePath != "" && !cfg.ClusterReset {
 		return errors.New("invalid flag use; --cluster-reset required with --cluster-reset-restore-path")
@@ -288,7 +250,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 
 	// if we ended up with any advertise-ips, ensure they're added to the SAN list;
 	// note that kube-apiserver does not support dual-stack advertise-ip as of 1.21.0:
-	/// https://github.com/kubernetes/kubeadm/issues/1612#issuecomment-772583989
+	// / https://github.com/kubernetes/kubeadm/issues/1612#issuecomment-772583989
 	if serverConfig.ControlConfig.AdvertiseIP != "" {
 		serverConfig.ControlConfig.SANs = append(serverConfig.ControlConfig.SANs, serverConfig.ControlConfig.AdvertiseIP)
 	}
@@ -436,7 +398,6 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		serverConfig.ControlConfig.DisableScheduler = true
 		serverConfig.ControlConfig.DisableCCM = true
 		serverConfig.ControlConfig.DisableServiceLB = true
-		serverConfig.ControlConfig.EtcdDisableSnapshots = true
 
 		// If the supervisor and apiserver are on the same port, everything is running embedded
 		// and we don't need the kubelet or containerd up to perform a cluster reset.

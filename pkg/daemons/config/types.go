@@ -14,7 +14,6 @@ import (
 	"github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
 	"github.com/rancher/wrangler/v3/pkg/generated/controllers/discovery"
 	"github.com/rancher/wrangler/v3/pkg/leader"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/client-go/kubernetes"
@@ -54,24 +53,6 @@ type Node struct {
 	ServerHTTPSPort          int
 	SupervisorPort           int
 	DefaultRuntime           string
-}
-
-type EtcdS3 struct {
-	AccessKey     string          `json:"accessKey,omitempty"`
-	Bucket        string          `json:"bucket,omitempty"`
-	BucketLookup  string          `json:"bucketLookup,omitempty"`
-	ConfigSecret  string          `json:"configSecret,omitempty"`
-	Endpoint      string          `json:"endpoint,omitempty"`
-	EndpointCA    string          `json:"endpointCA,omitempty"`
-	Folder        string          `json:"folder,omitempty"`
-	Proxy         string          `json:"proxy,omitempty"`
-	Region        string          `json:"region,omitempty"`
-	SecretKey     string          `json:"secretKey,omitempty"`
-	SessionToken  string          `json:"sessionToken,omitempty"`
-	Insecure      bool            `json:"insecure,omitempty"`
-	SkipSSLVerify bool            `json:"skipSSLVerify,omitempty"`
-	Retention     int             `json:"retention,omitempty"`
-	Timeout       metav1.Duration `json:"timeout,omitempty"`
 }
 
 type Containerd struct {
@@ -226,18 +207,10 @@ type Control struct {
 	ClusterResetRestorePath  string
 	MinTLSVersion            string
 	CipherSuites             []string
-	TLSMinVersion            uint16          `json:"-"`
-	TLSCipherSuites          []uint16        `json:"-"`
-	EtcdSnapshotName         string          `json:"-"`
-	EtcdDisableSnapshots     bool            `json:"-"`
-	EtcdExposeMetrics        bool            `json:"-"`
-	EtcdSnapshotDir          string          `json:"-"`
-	EtcdSnapshotCron         string          `json:"-"`
-	EtcdSnapshotReconcile    metav1.Duration `json:"-"`
-	EtcdSnapshotRetention    int             `json:"-"`
-	EtcdSnapshotCompress     bool            `json:"-"`
-	EtcdListFormat           string          `json:"-"`
-	EtcdS3                   *EtcdS3         `json:"-"`
+	TLSMinVersion            uint16   `json:"-"`
+	TLSCipherSuites          []uint16 `json:"-"`
+	EtcdExposeMetrics        bool     `json:"-"`
+	EtcdListFormat           string   `json:"-"`
 	ServerNodeName           string
 	VLevel                   int
 	VModule                  string
