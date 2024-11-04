@@ -245,9 +245,9 @@ var ServerFlags = []cli.Flag{
 	ClusterDomain,
 	&cli.StringFlag{
 		Name:        "flannel-backend",
-		Usage:       "(networking) Backend (valid values: 'none', 'vxlan', 'host-gw', 'wireguard-native'",
+		Usage:       "(networking) Backend (valid values: 'none', 'host-gw'",
 		Destination: &ServerConfig.FlannelBackend,
-		Value:       "vxlan",
+		Value:       "host-gw",
 	},
 	&cli.BoolFlag{
 		Name:        "flannel-ipv6-masq",

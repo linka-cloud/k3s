@@ -36,9 +36,6 @@ import (
 	// Backends need to be imported for their init() to get executed and them to register
 	_ "github.com/flannel-io/flannel/pkg/backend/extension"
 	_ "github.com/flannel-io/flannel/pkg/backend/hostgw"
-	_ "github.com/flannel-io/flannel/pkg/backend/ipsec"
-	_ "github.com/flannel-io/flannel/pkg/backend/vxlan"
-	_ "github.com/flannel-io/flannel/pkg/backend/wireguard"
 )
 
 const (

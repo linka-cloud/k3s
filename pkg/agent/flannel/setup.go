@@ -41,17 +41,6 @@ const (
 	"Type": "host-gw"
 }`
 
-	tailscaledBackend = `{
-	"Type": "extension",
-	"PostStartupCommand": "tailscale set --accept-routes --advertise-routes=%Routes%",
-	"ShutdownCommand": "tailscale down"
-}`
-
-	wireguardNativeBackend = `{
-	"Type": "wireguard",
-	"PersistentKeepaliveInterval": 25
-}`
-
 	emptyIPv6Network = "::/0"
 )
 
@@ -206,35 +195,9 @@ func createFlannelConf(nodeConfig *config.Node) error {
 
 	var backendConf string
 
-	// precheck and error out unsupported flannel backends.
 	switch nodeConfig.FlannelBackend {
-	case config.FlannelBackendHostGW:
-	case config.FlannelBackendTailscale:
-	case config.FlannelBackendWireguardNative:
-		if goruntime.GOOS == "windows" {
-			return fmt.Errorf("unsupported flannel backend '%s' for Windows", nodeConfig.FlannelBackend)
-		}
-	}
-
-	switch nodeConfig.FlannelBackend {
-	case config.FlannelBackendVXLAN:
-		backendConf = vxlanBackend
 	case config.FlannelBackendHostGW:
 		backendConf = hostGWBackend
-	case config.FlannelBackendTailscale:
-		var routes []string
-		if nm.IPv4Enabled() {
-			routes = append(routes, "$SUBNET")
-		}
-		if nm.IPv6Enabled() {
-			routes = append(routes, "$IPV6SUBNET")
-		}
-		if len(routes) == 0 {
-			return fmt.Errorf("incorrect netMode for flannel tailscale backend")
-		}
-		backendConf = strings.ReplaceAll(tailscaledBackend, "%Routes%", strings.Join(routes, ","))
-	case config.FlannelBackendWireguardNative:
-		backendConf = wireguardNativeBackend
 	default:
 		return fmt.Errorf("Cannot configure unknown flannel backend '%s'", nodeConfig.FlannelBackend)
 	}
