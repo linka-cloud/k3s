@@ -56,7 +56,7 @@ func generateTestConfig(t *testing.T) *config.Control {
 		ClusterDomain:  "cluster.local",
 		ClusterDNS:     net.ParseIP("10.43.0.10"),
 		ClusterIPRange: testutil.ClusterIPNet(),
-		FlannelBackend: "vxlan",
+		FlannelBackend: "host-gw",
 		ServiceIPRange: testutil.ServiceIPNet(),
 	}
 	return &config.Control{

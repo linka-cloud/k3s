@@ -64,7 +64,7 @@ func Test_createFlannelConf(t *testing.T) {
 	for _, tt := range tests {
 		var nodeConfig = &config.Node{
 			Flannel: config.Flannel{
-				Backend:  "vxlan",
+				Backend:  "host-gw",
 				ConfFile: "test_file",
 			},
 			AgentConfig: config.Agent{
