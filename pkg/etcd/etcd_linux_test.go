@@ -16,10 +16,8 @@ import (
 
 	"github.com/k3s-io/k3s/pkg/clientaccess"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/etcd/s3"
 	testutil "github.com/k3s-io/k3s/tests"
 	"github.com/k3s-io/k3s/tests/mock"
-	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -31,7 +29,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -60,20 +57,12 @@ func generateTestConfig(t *testing.T) *config.Control {
 		ServiceIPRange: testutil.ServiceIPNet(),
 	}
 	return &config.Control{
-		ServerNodeName:        hostname,
-		Runtime:               config.NewRuntime(),
-		HTTPSPort:             6443,
-		SupervisorPort:        6443,
-		AdvertisePort:         6443,
-		DataDir:               t.TempDir(),
-		EtcdSnapshotName:      "etcd-snapshot",
-		EtcdSnapshotCron:      "0 */12 * * *",
-		EtcdSnapshotReconcile: metav1.Duration{Duration: 10 * time.Minute},
-		EtcdSnapshotRetention: 5,
-		EtcdS3: &config.EtcdS3{
-			Endpoint: "s3.amazonaws.com",
-			Region:   "us-east-1",
-		},
+		ServerNodeName:      hostname,
+		Runtime:             config.NewRuntime(),
+		HTTPSPort:           6443,
+		SupervisorPort:      6443,
+		AdvertisePort:       6443,
+		DataDir:             t.TempDir(),
 		SANs:                []string{"127.0.0.1", mustGetAddress()},
 		CriticalControlArgs: criticalControlArgs,
 	}
@@ -266,8 +255,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 		config  *config.Control
 		name    string
 		address string
-		cron    *cron.Cron
-		s3      *s3.Controller
 	}
 	type args struct {
 		clientAccessInfo *clientaccess.Info
@@ -290,7 +277,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 			setup: func(e *ETCD, ctxInfo *contextInfo) error {
 				ctxInfo.ctx, ctxInfo.cancel = context.WithCancel(context.Background())
 				ctxInfo.wg = &sync.WaitGroup{}
-				e.config.EtcdDisableSnapshots = true
 				testutil.GenerateRuntime(e.config)
 				return nil
 			},
@@ -312,7 +298,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  generateTestConfig(t),
 				address: mustGetAddress(),
 				name:    "default",
-				cron:    cron.New(),
 			},
 			setup: func(e *ETCD, ctxInfo *contextInfo) error {
 				ctxInfo.ctx, ctxInfo.cancel = context.WithCancel(context.Background())
@@ -338,7 +323,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  generateTestConfig(t),
 				address: mustGetAddress(),
 				name:    "default",
-				cron:    cron.New(),
 			},
 			args: args{
 				clientAccessInfo: &clientaccess.Info{
@@ -371,7 +355,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  generateTestConfig(t),
 				address: mustGetAddress(),
 				name:    "default",
-				cron:    cron.New(),
 			},
 			setup: func(e *ETCD, ctxInfo *contextInfo) error {
 				ctxInfo.ctx, ctxInfo.cancel = context.WithCancel(context.Background())
@@ -403,8 +386,6 @@ func Test_UnitETCD_Start(t *testing.T) {
 				config:  tt.fields.config,
 				name:    tt.fields.name,
 				address: tt.fields.address,
-				cron:    tt.fields.cron,
-				s3:      tt.fields.s3,
 			}
 
 			if err := tt.setup(e, &tt.fields.context); err != nil {

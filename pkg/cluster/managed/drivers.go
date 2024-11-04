@@ -21,10 +21,7 @@ type Driver interface {
 	IsReset() (bool, error)
 	ResetFile() string
 	Start(ctx context.Context, wg *sync.WaitGroup, clientAccessInfo *clientaccess.Info) error
-	Restore(ctx context.Context) error
 	EndpointName() string
-	Snapshot(ctx context.Context) (*SnapshotResult, error)
-	ReconcileSnapshotData(ctx context.Context) error
 	GetMembersClientURLs(ctx context.Context) ([]string, error)
 	RemoveSelf(ctx context.Context) error
 	Test(ctx context.Context, enableMaintenance bool) error

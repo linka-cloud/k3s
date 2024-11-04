@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/clientaccess"
@@ -21,7 +20,6 @@ import (
 	"github.com/k3s-io/kine/pkg/endpoint"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/wait"
 	utilsnet "k8s.io/utils/net"
 )
 
@@ -87,25 +85,6 @@ func (c *Cluster) Start(ctx context.Context, wg *sync.WaitGroup) error {
 					if err := Save(ctx, c.config, false); err != nil && !errors.Is(err, context.Canceled) {
 						signals.RequestShutdown(pkgerrors.WithMessage(err, "failed to save bootstrap data"))
 						return
-					}
-
-					if !c.config.EtcdDisableSnapshots {
-						// do an initial reconcile of snapshots with a fast retry until it succeeds
-						wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-							if err := c.managedDB.ReconcileSnapshotData(ctx); err != nil {
-								logrus.Errorf("Failed to record snapshots for cluster: %v", err)
-								return false, nil
-							}
-							return true, nil
-						})
-
-						// continue reconciling snapshots in the background at the configured interval.
-						// the interval is jittered by 5% to avoid all nodes reconciling at the same time.
-						wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
-							if err := c.managedDB.ReconcileSnapshotData(ctx); err != nil {
-								logrus.Errorf("Failed to record snapshots for cluster: %v", err)
-							}
-						}, c.config.EtcdSnapshotReconcile.Duration, 0.05, false)
 					}
 					return
 				case <-ctx.Done():
