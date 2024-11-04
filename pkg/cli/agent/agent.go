@@ -9,6 +9,10 @@ import (
 	"runtime"
 
 	"github.com/gorilla/mux"
+	"github.com/rancher/wrangler/v3/pkg/signals"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+
 	"github.com/k3s-io/k3s/pkg/agent"
 	"github.com/k3s-io/k3s/pkg/agent/https"
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
@@ -20,10 +24,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/k3s-io/k3s/pkg/vpn"
-	"github.com/rancher/wrangler/v3/pkg/signals"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 )
 
 func Run(ctx *cli.Context) error {
@@ -91,20 +91,6 @@ func Run(ctx *cli.Context) error {
 	contextCtx := signals.SetupSignalContext()
 
 	go cmds.WriteCoverage(contextCtx)
-	if cfg.VPNAuthFile != "" {
-		cfg.VPNAuth, err = util.ReadFile(cfg.VPNAuthFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Starts the VPN in the agent if config was set up
-	if cfg.VPNAuth != "" {
-		err := vpn.StartVPN(cfg.VPNAuth)
-		if err != nil {
-			return err
-		}
-	}
 
 	// Until the agent is run and retrieves config from the server, we won't know
 	// if the embedded registry is enabled. If it is not enabled, these are not
