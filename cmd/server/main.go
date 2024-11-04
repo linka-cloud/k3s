@@ -13,7 +13,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/cli/completion"
 	"github.com/k3s-io/k3s/pkg/cli/crictl"
 	"github.com/k3s-io/k3s/pkg/cli/ctr"
-	"github.com/k3s-io/k3s/pkg/cli/etcdsnapshot"
 	"github.com/k3s-io/k3s/pkg/cli/kubectl"
 	"github.com/k3s-io/k3s/pkg/cli/secretsencrypt"
 	"github.com/k3s-io/k3s/pkg/cli/server"
@@ -58,12 +57,6 @@ func main() {
 			token.Generate,
 			token.List,
 			token.Rotate,
-		),
-		cmds.NewEtcdSnapshotCommands(
-			etcdsnapshot.Delete,
-			etcdsnapshot.List,
-			etcdsnapshot.Prune,
-			etcdsnapshot.Save,
 		),
 		cmds.NewSecretsEncryptCommands(
 			secretsencrypt.Status,
