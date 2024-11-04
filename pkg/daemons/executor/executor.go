@@ -40,7 +40,6 @@ type Executor interface {
 	ETCD(ctx context.Context, wg *sync.WaitGroup, args *ETCDConfig, extraArgs []string, test TestFunc) error
 	CloudControllerManager(ctx context.Context, ccmRBACReady <-chan struct{}, args []string) error
 	Containerd(ctx context.Context, node *daemonconfig.Node) error
-	Docker(ctx context.Context, node *daemonconfig.Node) error
 	CRI(ctx context.Context, node *daemonconfig.Node) error
 	CNI(ctx context.Context, wg *sync.WaitGroup, node *daemonconfig.Node) error
 	APIServerReadyChan() <-chan struct{}
@@ -229,13 +228,6 @@ func Containerd(ctx context.Context, config *daemonconfig.Node) error {
 		return ErrNotInitialized
 	}
 	return executor.Containerd(ctx, config)
-}
-
-func Docker(ctx context.Context, config *daemonconfig.Node) error {
-	if executor == nil {
-		return ErrNotInitialized
-	}
-	return executor.Docker(ctx, config)
 }
 
 func CRI(ctx context.Context, config *daemonconfig.Node) error {
