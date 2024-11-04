@@ -12,6 +12,25 @@ import (
 	"time"
 
 	systemd "github.com/coreos/go-systemd/v22/daemon"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+	toolswatch "k8s.io/client-go/tools/watch"
+	"k8s.io/component-base/cli/globalflag"
+	"k8s.io/component-base/logs"
+	app2 "k8s.io/kubernetes/cmd/kube-proxy/app"
+	kubeproxyconfig "k8s.io/kubernetes/pkg/proxy/apis/config"
+	utilsnet "k8s.io/utils/net"
+	utilsptr "k8s.io/utils/ptr"
+
 	"github.com/k3s-io/k3s/pkg/agent/config"
 	"github.com/k3s-io/k3s/pkg/agent/containerd"
 	"github.com/k3s-io/k3s/pkg/agent/flannel"
@@ -34,24 +53,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
-	toolswatch "k8s.io/client-go/tools/watch"
-	"k8s.io/component-base/cli/globalflag"
-	"k8s.io/component-base/logs"
-	app2 "k8s.io/kubernetes/cmd/kube-proxy/app"
-	kubeproxyconfig "k8s.io/kubernetes/pkg/proxy/apis/config"
-	utilsnet "k8s.io/utils/net"
-	utilsptr "k8s.io/utils/ptr"
 )
 
 func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
@@ -138,8 +139,6 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 	if !nodeConfig.NoFlannel {
 		if (nodeConfig.FlannelExternalIP) && (len(nodeConfig.AgentConfig.NodeExternalIPs) == 0) {
 			logrus.Warnf("Server has flannel-external-ip flag set but this node does not set node-external-ip. Flannel will use internal address when connecting to this node.")
-		} else if (nodeConfig.FlannelExternalIP) && (nodeConfig.FlannelBackend != daemonconfig.FlannelBackendWireguardNative) {
-			logrus.Warnf("Flannel is using external addresses with an insecure backend: %v. Please consider using an encrypting flannel backend.", nodeConfig.FlannelBackend)
 		}
 		if err := flannel.Prepare(ctx, nodeConfig); err != nil {
 			return err

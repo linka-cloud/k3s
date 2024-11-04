@@ -31,8 +31,4 @@ const (
   ]
 }
 `
-
-	vxlanBackend = `{
-	"Type": "vxlan"
-}`
 )

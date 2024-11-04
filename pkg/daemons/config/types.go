@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/k3s-io/k3s/pkg/generated/controllers/k3s.cattle.io"
 	"github.com/k3s-io/kine/pkg/endpoint"
 	"github.com/rancher/wharfie/pkg/registries"
 	"github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
@@ -19,20 +18,19 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/client-go/tools/record"
 	utilsnet "k8s.io/utils/net"
+
+	"github.com/k3s-io/k3s/pkg/generated/controllers/k3s.cattle.io"
 )
 
 const (
-	FlannelBackendNone            = "none"
-	FlannelBackendVXLAN           = "vxlan"
-	FlannelBackendHostGW          = "host-gw"
-	FlannelBackendWireguardNative = "wireguard-native"
-	FlannelBackendTailscale       = "tailscale"
-	EgressSelectorModeAgent       = "agent"
-	EgressSelectorModeCluster     = "cluster"
-	EgressSelectorModeDisabled    = "disabled"
-	EgressSelectorModePod         = "pod"
-	CertificateRenewDays          = 90
-	StreamServerPort              = "10010"
+	FlannelBackendNone         = "none"
+	FlannelBackendHostGW       = "host-gw"
+	EgressSelectorModeAgent    = "agent"
+	EgressSelectorModeCluster  = "cluster"
+	EgressSelectorModeDisabled = "disabled"
+	EgressSelectorModePod      = "pod"
+	CertificateRenewDays       = 90
+	StreamServerPort           = "10010"
 )
 
 type Node struct {
