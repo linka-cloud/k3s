@@ -34,7 +34,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/profile"
 	"github.com/k3s-io/k3s/pkg/rootless"
 	"github.com/k3s-io/k3s/pkg/signals"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	pkgerrors "github.com/pkg/errors"
@@ -109,16 +108,6 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 
 	if err := executor.Bootstrap(ctx, nodeConfig, cfg); err != nil {
 		return err
-	}
-
-	if nodeConfig.EmbeddedRegistry {
-		if nodeConfig.ContainerRuntimeEndpoint != "" {
-			return errors.New("embedded registry mirror requires embedded containerd")
-		}
-
-		if err := spegel.DefaultRegistry.Start(ctx, nodeConfig, executor.CRIReadyChan()); err != nil {
-			return pkgerrors.WithMessage(err, "failed to start embedded registry")
-		}
 	}
 
 	if nodeConfig.SupervisorMetrics {
