@@ -32,7 +32,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/util/permissions"
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/k3s-io/k3s/pkg/vpn"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -111,21 +110,6 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 			if err := rootless.Rootless(dataDir, dualNode); err != nil {
 				return err
 			}
-		}
-	}
-
-	if cmds.AgentConfig.VPNAuthFile != "" {
-		cmds.AgentConfig.VPNAuth, err = util.ReadFile(cmds.AgentConfig.VPNAuthFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Starts the VPN in the server if config was set up
-	if cmds.AgentConfig.VPNAuth != "" {
-		err := vpn.StartVPN(cmds.AgentConfig.VPNAuth)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -294,48 +278,14 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		serverConfig.ControlConfig.SANs = append(serverConfig.ControlConfig.SANs, ip.String())
 	}
 
-	// if not set, try setting advertise-ip from agent VPN
-	if cmds.AgentConfig.VPNAuth != "" {
-		vpnInfo, err := vpn.GetVPNInfo(cmds.AgentConfig.VPNAuth)
-		if err != nil {
-			return err
-		}
+	// if not set, try setting advertise-ip from agent node-external-ip
+	if serverConfig.ControlConfig.AdvertiseIP == "" && len(cmds.AgentConfig.NodeExternalIP.Value()) != 0 {
+		serverConfig.ControlConfig.AdvertiseIP = util.GetFirstValidIPString(cmds.AgentConfig.NodeExternalIP.Value())
+	}
 
-		// If we are in ipv6-only mode, we should pass the ipv6 address. Otherwise, ipv4
-		if utilsnet.IsIPv6(nodeIPs[0]) {
-			if vpnInfo.IPv6Address != nil {
-				logrus.Infof("Changed advertise-address to %v due to VPN", vpnInfo.IPv6Address)
-				if serverConfig.ControlConfig.AdvertiseIP != "" {
-					logrus.Warn("Conflict in the config detected. VPN integration overwrites advertise-address but the config is setting the advertise-address parameter")
-				}
-				serverConfig.ControlConfig.AdvertiseIP = vpnInfo.IPv6Address.String()
-			} else {
-				return errors.New("tailscale does not provide an ipv6 address")
-			}
-		} else {
-			// We are in dual-stack or ipv4-only mode
-			if vpnInfo.IPv4Address != nil {
-				logrus.Infof("Changed advertise-address to %v due to VPN", vpnInfo.IPv4Address)
-				if serverConfig.ControlConfig.AdvertiseIP != "" {
-					logrus.Warn("Conflict in the config detected. VPN integration overwrites advertise-address but the config is setting the advertise-address parameter")
-				}
-				serverConfig.ControlConfig.AdvertiseIP = vpnInfo.IPv4Address.String()
-			} else {
-				return errors.New("tailscale does not provide an ipv4 address")
-			}
-		}
-		logrus.Warn("Etcd IP (PrivateIP) remains the local IP. Running etcd traffic over VPN is not recommended due to performance issues")
-	} else {
-
-		// if not set, try setting advertise-ip from agent node-external-ip
-		if serverConfig.ControlConfig.AdvertiseIP == "" && len(cmds.AgentConfig.NodeExternalIP.Value()) != 0 {
-			serverConfig.ControlConfig.AdvertiseIP = util.GetFirstValidIPString(cmds.AgentConfig.NodeExternalIP.Value())
-		}
-
-		// if not set, try setting advertise-ip from agent node-ip
-		if serverConfig.ControlConfig.AdvertiseIP == "" && len(cmds.AgentConfig.NodeIP.Value()) != 0 {
-			serverConfig.ControlConfig.AdvertiseIP = util.GetFirstValidIPString(cmds.AgentConfig.NodeIP.Value())
-		}
+	// if not set, try setting advertise-ip from agent node-ip
+	if serverConfig.ControlConfig.AdvertiseIP == "" && len(cmds.AgentConfig.NodeIP.Value()) != 0 {
+		serverConfig.ControlConfig.AdvertiseIP = util.GetFirstValidIPString(cmds.AgentConfig.NodeIP.Value())
 	}
 
 	// if we ended up with any advertise-ips, ensure they're added to the SAN list;
