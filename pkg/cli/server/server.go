@@ -28,7 +28,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/rootless"
 	"github.com/k3s-io/k3s/pkg/server"
 	"github.com/k3s-io/k3s/pkg/signals"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/util/permissions"
 	"github.com/k3s-io/k3s/pkg/version"
@@ -173,7 +172,6 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	serverConfig.ControlConfig.DisableScheduler = cfg.DisableScheduler
 	serverConfig.ControlConfig.DisableControllerManager = cfg.DisableControllerManager
 	serverConfig.ControlConfig.DisableAgent = cfg.DisableAgent
-	serverConfig.ControlConfig.EmbeddedRegistry = cfg.EmbeddedRegistry
 	serverConfig.ControlConfig.ClusterInit = cfg.ClusterInit
 	serverConfig.ControlConfig.EncryptSecrets = cfg.EncryptSecrets
 	serverConfig.ControlConfig.EncryptProvider = cfg.EncryptProvider
@@ -518,19 +516,6 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		// initialize the apiAddress Channel for receiving the api address from etcd
 		agentConfig.APIAddressCh = make(chan []string)
 		go getAPIAddressFromEtcd(ctx, serverConfig, agentConfig)
-	}
-
-	// Until the agent is run and retrieves config from the server, we won't know
-	// if the embedded registry is enabled. If it is not enabled, these are not
-	// used as the registry is never started.
-	registry := spegel.DefaultRegistry
-	registry.Bootstrapper = spegel.NewChainingBootstrapper(
-		spegel.NewServerBootstrapper(&serverConfig.ControlConfig),
-		spegel.NewAgentBootstrapper(cfg.ServerURL, token, agentConfig.DataDir),
-		spegel.NewSelfBootstrapper(),
-	)
-	registry.Router = func(ctx context.Context, nodeConfig *config.Node) (*mux.Router, error) {
-		return https.Start(ctx, nodeConfig, serverConfig.ControlConfig.Runtime)
 	}
 
 	// same deal for metrics - these are not used if the extra metrics listener is not enabled.
