@@ -70,12 +70,6 @@ func applyContainerdQoSClassConfigFileIfPresent(envInfo *cmds.Agent, containerdC
 	return nil
 }
 
-// applyCRIDockerdOSSpecificConfig sets linux-specific cri-dockerd config
-func applyCRIDockerdOSSpecificConfig(nodeConfig *config.Node) error {
-	nodeConfig.CRIDockerd.Address = "unix:///run/k3s/cri-dockerd/cri-dockerd.sock"
-	return nil
-}
-
 // configureACL will configure an Access Control List for the specified file.
 // On Linux, this function is a no-op
 func configureACL(file string) error {

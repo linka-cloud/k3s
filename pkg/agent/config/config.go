@@ -572,7 +572,6 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	}
 
 	nodeConfig := &config.Node{
-		Docker:                   envInfo.Docker,
 		SELinux:                  envInfo.EnableSELinux,
 		ContainerRuntimeEndpoint: envInfo.ContainerRuntimeEndpoint,
 		ImageServiceEndpoint:     envInfo.ImageServiceEndpoint,
@@ -608,8 +607,6 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	nodeConfig.AgentConfig.IPSECPSK = controlConfig.IPSECPSK
 	nodeConfig.Containerd.Config = filepath.Join(envInfo.DataDir, "agent", "etc", "containerd", "config.toml")
 	nodeConfig.Containerd.Root = filepath.Join(envInfo.DataDir, "agent", "containerd")
-	nodeConfig.CRIDockerd.Root = filepath.Join(envInfo.DataDir, "agent", "cri-dockerd")
-	nodeConfig.CRIDockerd.Debug = envInfo.Debug
 	nodeConfig.Containerd.Opt = filepath.Join(envInfo.DataDir, "agent", "containerd")
 	nodeConfig.Containerd.Log = filepath.Join(envInfo.DataDir, "agent", "containerd", "containerd.log")
 	nodeConfig.Containerd.Registry = filepath.Join(envInfo.DataDir, "agent", "etc", "containerd", "certs.d")
@@ -658,13 +655,7 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 		nodeConfig.AgentConfig.ImageServiceSocket = nodeConfig.ImageServiceEndpoint
 	}
 
-	if nodeConfig.Docker {
-		if err := applyCRIDockerdOSSpecificConfig(nodeConfig); err != nil {
-			return nil, err
-		}
-		nodeConfig.AgentConfig.CNIPlugin = true
-		nodeConfig.AgentConfig.RuntimeSocket = nodeConfig.CRIDockerd.Address
-	} else if nodeConfig.ContainerRuntimeEndpoint != "" {
+	if nodeConfig.ContainerRuntimeEndpoint != "" {
 		nodeConfig.AgentConfig.RuntimeSocket = nodeConfig.ContainerRuntimeEndpoint
 	} else {
 		if err := applyContainerdOSSpecificConfig(nodeConfig); err != nil {

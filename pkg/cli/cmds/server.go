@@ -576,7 +576,6 @@ var ServerFlags = []cli.Flag{
 	NodeTaints,
 	ImageCredProvBinDirFlag,
 	ImageCredProvConfigFlag,
-	DockerFlag,
 	CRIEndpointFlag,
 	DefaultRuntimeFlag,
 	ImageServiceEndpointFlag,

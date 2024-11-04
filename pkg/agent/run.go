@@ -109,7 +109,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 	}
 
 	if nodeConfig.EmbeddedRegistry {
-		if nodeConfig.Docker || nodeConfig.ContainerRuntimeEndpoint != "" {
+		if nodeConfig.ContainerRuntimeEndpoint != "" {
 			return errors.New("embedded registry mirror requires embedded containerd")
 		}
 
@@ -173,9 +173,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 
 // startCRI starts the configured CRI, or waits for an external CRI to be ready.
 func startCRI(ctx context.Context, nodeConfig *daemonconfig.Node) error {
-	if nodeConfig.Docker {
-		return executor.Docker(ctx, nodeConfig)
-	} else if nodeConfig.ContainerRuntimeEndpoint == "" {
+	if nodeConfig.ContainerRuntimeEndpoint == "" {
 		if err := containerd.SetupContainerdConfig(nodeConfig); err != nil {
 			return err
 		}
