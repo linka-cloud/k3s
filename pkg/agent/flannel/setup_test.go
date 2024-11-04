@@ -67,7 +67,7 @@ func Test_createFlannelConf(t *testing.T) {
 		var agent = config.Agent{}
 		agent.ClusterCIDR = stringToCIDR(tt.args)[0]
 		agent.ClusterCIDRs = stringToCIDR(tt.args)
-		var nodeConfig = &config.Node{Docker: false, ContainerRuntimeEndpoint: "", SELinux: false, FlannelBackend: "host-gw", FlannelConfFile: "test_file", FlannelConfOverride: false, FlannelIface: nil, Containerd: containerd, Images: "", AgentConfig: agent, Token: "", ServerHTTPSPort: 0}
+		var nodeConfig = &config.Node{ContainerRuntimeEndpoint: "", SELinux: false, FlannelBackend: "host-gw", FlannelConfFile: "test_file", FlannelConfOverride: false, FlannelIface: nil, Containerd: containerd, Images: "", AgentConfig: agent, Token: "", ServerHTTPSPort: 0}
 
 		t.Run(tt.name, func(t *testing.T) {
 			if err := createFlannelConf(nodeConfig); (err != nil) != tt.wantErr {
