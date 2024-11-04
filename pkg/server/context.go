@@ -5,10 +5,6 @@ import (
 
 	helmcrd "github.com/k3s-io/helm-controller/pkg/crd"
 	"github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io"
-	addoncrd "github.com/k3s-io/k3s/pkg/crd"
-	"github.com/k3s-io/k3s/pkg/generated/controllers/k3s.cattle.io"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
 	"github.com/rancher/wrangler/v3/pkg/crd"
 	"github.com/rancher/wrangler/v3/pkg/generated/controllers/apps"
@@ -21,10 +17,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
+
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 type Context struct {
-	K3s   *k3s.Factory
 	Helm  *helm.Factory
 	Batch *batch.Factory
 	Apps  *apps.Factory
@@ -35,7 +33,7 @@ type Context struct {
 }
 
 func (c *Context) Start(ctx context.Context) error {
-	return start.All(ctx, 5, c.K3s, c.Helm, c.Apps, c.Auth, c.Batch, c.Core)
+	return start.All(ctx, 5, c.Helm, c.Apps, c.Auth, c.Batch, c.Core)
 }
 
 func NewContext(ctx context.Context, config *Config, forServer bool) (*Context, error) {
@@ -63,7 +61,6 @@ func NewContext(ctx context.Context, config *Config, forServer bool) (*Context, 
 	}
 
 	return &Context{
-		K3s:   k3s.NewFactoryFromConfigOrDie(restConfig),
 		Helm:  helm.NewFactoryFromConfigOrDie(restConfig),
 		K8s:   k8s,
 		Auth:  rbac.NewFactoryFromConfigOrDie(restConfig),
@@ -86,7 +83,7 @@ func registerCrds(ctx context.Context, config *Config, restConfig *rest.Config) 
 }
 
 func crds(config *Config) []crd.CRD {
-	defaultCrds := addoncrd.List()
+	var defaultCrds []crd.CRD
 	if !config.ControlConfig.DisableHelmController {
 		defaultCrds = append(defaultCrds, helmcrd.List()...)
 	}

@@ -13,19 +13,6 @@ import (
 
 	helmchart "github.com/k3s-io/helm-controller/pkg/controllers/chart"
 	helmcommon "github.com/k3s-io/helm-controller/pkg/controllers/common"
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	"github.com/k3s-io/k3s/pkg/clientaccess"
-	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/daemons/control"
-	"github.com/k3s-io/k3s/pkg/datadir"
-	"github.com/k3s-io/k3s/pkg/deploy"
-	"github.com/k3s-io/k3s/pkg/node"
-	"github.com/k3s-io/k3s/pkg/nodepassword"
-	"github.com/k3s-io/k3s/pkg/rootlessports"
-	"github.com/k3s-io/k3s/pkg/secretsencrypt"
-	"github.com/k3s-io/k3s/pkg/static"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
 	"github.com/rancher/wrangler/v3/pkg/apply"
 	v1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
@@ -36,6 +23,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	"github.com/k3s-io/k3s/pkg/clientaccess"
+	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/daemons/control"
+	"github.com/k3s-io/k3s/pkg/datadir"
+	"github.com/k3s-io/k3s/pkg/node"
+	"github.com/k3s-io/k3s/pkg/nodepassword"
+	"github.com/k3s-io/k3s/pkg/rootlessports"
+	"github.com/k3s-io/k3s/pkg/secretsencrypt"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 func ResolveDataDir(dataDir string) (string, error) {
@@ -102,9 +101,6 @@ func runControllers(ctx context.Context, config *Config) error {
 	}
 
 	controlConfig.Runtime.StartupHooksWg.Wait()
-	if err := stageFiles(ctx, sc, controlConfig); err != nil {
-		return errors.Wrap(err, "failed to stage files")
-	}
 
 	// run migration before we set controlConfig.Runtime.Core
 	if err := nodepassword.MigrateFile(
@@ -113,7 +109,6 @@ func runControllers(ctx context.Context, config *Config) error {
 		controlConfig.Runtime.NodePasswdFile); err != nil {
 		logrus.Warn(errors.Wrap(err, "error migrating node-password file"))
 	}
-	controlConfig.Runtime.K3s = sc.K3s
 	controlConfig.Runtime.Event = sc.Event
 	controlConfig.Runtime.Core = sc.Core
 
@@ -252,59 +247,6 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 	}
 
 	return nil
-}
-
-func stageFiles(ctx context.Context, sc *Context, controlConfig *config.Control) error {
-	if controlConfig.DisableAPIServer {
-		return nil
-	}
-	dataDir := filepath.Join(controlConfig.DataDir, "static")
-	if err := static.Stage(dataDir); err != nil {
-		return err
-	}
-	dataDir = filepath.Join(controlConfig.DataDir, "manifests")
-
-	dnsIPFamilyPolicy := "SingleStack"
-	if len(controlConfig.ClusterDNSs) > 1 {
-		dnsIPFamilyPolicy = "RequireDualStack"
-	}
-
-	templateVars := map[string]string{
-		"%{CLUSTER_DNS}%":                 controlConfig.ClusterDNS.String(),
-		"%{CLUSTER_DNS_LIST}%":            fmt.Sprintf("[%s]", util.JoinIPs(controlConfig.ClusterDNSs)),
-		"%{CLUSTER_DNS_IPFAMILYPOLICY}%":  dnsIPFamilyPolicy,
-		"%{CLUSTER_DOMAIN}%":              controlConfig.ClusterDomain,
-		"%{DEFAULT_LOCAL_STORAGE_PATH}%":  controlConfig.DefaultLocalStoragePath,
-		"%{SYSTEM_DEFAULT_REGISTRY}%":     registryTemplate(controlConfig.SystemDefaultRegistry),
-		"%{SYSTEM_DEFAULT_REGISTRY_RAW}%": controlConfig.SystemDefaultRegistry,
-		"%{PREFERRED_ADDRESS_TYPES}%":     addrTypesPrioTemplate(controlConfig.FlannelExternalIP),
-	}
-
-	skip := controlConfig.Skips
-	if err := deploy.Stage(dataDir, templateVars, skip); err != nil {
-		return err
-	}
-
-	restConfig, err := clientcmd.BuildConfigFromFlags("", controlConfig.Runtime.KubeConfigSupervisor)
-	if err != nil {
-		return err
-	}
-	restConfig.UserAgent = util.GetUserAgent("deploy")
-
-	k8s, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
-	apply := apply.New(k8s, apply.NewClientFactory(restConfig)).WithDynamicLookup()
-	k3s := sc.K3s.WithAgent(restConfig.UserAgent)
-
-	return deploy.WatchFiles(ctx,
-		k8s,
-		apply,
-		k3s.V1().Addon(),
-		controlConfig.Disables,
-		dataDir)
 }
 
 // registryTemplate behaves like the system_default_registry template in Rancher helm charts,

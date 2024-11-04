@@ -18,8 +18,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/client-go/tools/record"
 	utilsnet "k8s.io/utils/net"
-
-	"github.com/k3s-io/k3s/pkg/generated/controllers/k3s.cattle.io"
 )
 
 const (
@@ -366,7 +364,6 @@ type ControlRuntime struct {
 	ClientETCDCert           string
 	ClientETCDKey            string
 
-	K3s        *k3s.Factory
 	Core       *core.Factory
 	Event      record.EventRecorder
 	EtcdConfig endpoint.ETCDConfig
