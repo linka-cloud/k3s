@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/clientaccess"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/daemons/control/deps"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
@@ -498,7 +496,6 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 		ContainerRuntimeEndpoint: envInfo.ContainerRuntimeEndpoint,
 		ImageServiceEndpoint:     envInfo.ImageServiceEndpoint,
 		EnablePProf:              envInfo.EnablePProf,
-		EmbeddedRegistry:         controlConfig.EmbeddedRegistry,
 		FlannelBackend:           controlConfig.FlannelBackend,
 		FlannelIPv6Masq:          controlConfig.FlannelIPv6Masq,
 		FlannelExternalIP:        controlConfig.FlannelExternalIP,
@@ -693,29 +690,6 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 		return nil, err
 	}
 	nodeConfig.AgentConfig.Registry = privRegistries.Registry
-
-	if nodeConfig.EmbeddedRegistry {
-		psk, err := hex.DecodeString(controlConfig.IPSECPSK)
-		if err != nil {
-			return nil, err
-		}
-		if len(psk) < 32 {
-			return nil, errors.New("insufficient PSK bytes")
-		}
-
-		conf := spegel.DefaultRegistry
-		conf.ExternalAddress = nodeConfig.AgentConfig.NodeIP
-		conf.InternalAddress = controlConfig.Loopback(false)
-		conf.RegistryPort = strconv.Itoa(controlConfig.SupervisorPort)
-		conf.ClientCAFile = clientCAFile
-		conf.ClientCertFile = clientK3sControllerCert
-		conf.ClientKeyFile = clientK3sControllerKey
-		conf.ServerCAFile = serverCAFile
-		conf.ServerCertFile = servingKubeletCert
-		conf.ServerKeyFile = servingKubeletKey
-		conf.PSK = psk[:32]
-		conf.InjectMirror(nodeConfig)
-	}
 
 	if err := validateNetworkConfig(nodeConfig); err != nil {
 		return nil, err

@@ -3,7 +3,6 @@ package containerd
 import (
 	"bufio"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/agent/templates"
 	util2 "github.com/k3s-io/k3s/pkg/agent/util"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/rancher/wharfie/pkg/registries"
 	"github.com/sirupsen/logrus"
@@ -43,8 +41,7 @@ func writeContainerdConfig(cfg *config.Node, containerdConfig templates.Containe
 
 // writeContainerdHosts merges registry mirrors/configs, and renders and saves hosts.toml from the filled template
 func writeContainerdHosts(cfg *config.Node, containerdConfig templates.ContainerdConfig) error {
-	mirrorAddr := net.JoinHostPort(spegel.DefaultRegistry.InternalAddress, spegel.DefaultRegistry.RegistryPort)
-	hosts := getHostConfigs(containerdConfig.PrivateRegistryConfig, containerdConfig.NoDefaultEndpoint, mirrorAddr)
+	hosts := getHostConfigs(containerdConfig.PrivateRegistryConfig, containerdConfig.NoDefaultEndpoint)
 
 	// Clean up previous configuration templates
 	if err := cleanContainerdHosts(cfg.Containerd.Registry, hosts); err != nil {
@@ -113,12 +110,12 @@ func cleanContainerdHosts(dir string, hosts HostConfigs) error {
 }
 
 // getHostConfigs merges the registry mirrors/configs into HostConfig template structs
-func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool, mirrorAddr string) HostConfigs {
+func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool) HostConfigs {
 	hosts := map[string]templates.HostConfig{}
 
 	// create config for default endpoints
 	for host, config := range registry.Configs {
-		if c, err := defaultHostConfig(host, mirrorAddr, config); err != nil {
+		if c, err := defaultHostConfig(host, config); err != nil {
 			logrus.Errorf("Failed to generate config for registry %s: %v", host, err)
 		} else {
 			if host == "*" {
@@ -133,7 +130,7 @@ func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool, mirro
 		// create the default config, if it wasn't explicitly mentioned in the config section
 		config, ok := hosts[host]
 		if !ok {
-			if c, err := defaultHostConfig(host, mirrorAddr, configForHost(registry.Configs, host)); err != nil {
+			if c, err := defaultHostConfig(host, configForHost(registry.Configs, host)); err != nil {
 				logrus.Errorf("Failed to generate config for registry %s: %v", host, err)
 				continue
 			} else {
@@ -154,7 +151,7 @@ func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool, mirro
 		// all mirrors to have the same structure. This will require changes to the registries.yaml
 		// structure, which is defined in rancher/wharfie.
 		for i, endpoint := range mirror.Endpoints {
-			registryName, url, override, err := normalizeEndpointAddress(endpoint, mirrorAddr)
+			registryName, url, override, err := normalizeEndpointAddress(endpoint)
 			if err != nil {
 				logrus.Warnf("Ignoring invalid endpoint URL %d=%s for %s: %v", i, endpoint, host, err)
 			} else if _, ok := seenEndpoint[url.String()]; ok {
@@ -162,10 +159,7 @@ func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool, mirro
 			} else {
 				seenEndpoint[url.String()] = true
 				var rewrites map[string]string
-				// Do not apply rewrites to the embedded registry endpoint
-				if url.Host != mirrorAddr {
-					rewrites = mirror.Rewrites
-				}
+				rewrites = mirror.Rewrites
 				ep := templates.RegistryEndpoint{
 					Config:       configForHost(registry.Configs, registryName),
 					Rewrites:     rewrites,
@@ -203,7 +197,7 @@ func getHostConfigs(registry *registries.Registry, noDefaultEndpoint bool, mirro
 // If unsuccessful, an error is returned.
 // Scheme and hostname logic should match containerd:
 // https://github.com/containerd/containerd/blob/v1.7.13/remotes/docker/config/hosts.go#L99-L131
-func normalizeEndpointAddress(endpoint, mirrorAddr string) (string, *url.URL, bool, error) {
+func normalizeEndpointAddress(endpoint string) (string, *url.URL, bool, error) {
 	// Ensure that the endpoint address has a scheme so that the URL is parsed properly
 	if !strings.Contains(endpoint, "://") {
 		endpoint = "//" + endpoint
@@ -216,8 +210,8 @@ func normalizeEndpointAddress(endpoint, mirrorAddr string) (string, *url.URL, bo
 
 	// set default scheme, if not provided
 	if endpointURL.Scheme == "" {
-		// localhost on odd ports defaults to http, unless it's the embedded mirror
-		if docker.IsLocalhost(endpointURL.Host) && port != "" && port != "443" && endpointURL.Host != mirrorAddr {
+		// localhost on odd ports defaults to http
+		if docker.IsLocalhost(endpointURL.Host) && port != "" && port != "443" {
 			endpointURL.Scheme = "http"
 		} else {
 			endpointURL.Scheme = "https"
@@ -240,8 +234,8 @@ func normalizeEndpointAddress(endpoint, mirrorAddr string) (string, *url.URL, bo
 	return registry, endpointURL, true, nil
 }
 
-func defaultHostConfig(host, mirrorAddr string, config registries.RegistryConfig) (*templates.HostConfig, error) {
-	_, url, _, err := normalizeEndpointAddress(host, mirrorAddr)
+func defaultHostConfig(host string, config registries.RegistryConfig) (*templates.HostConfig, error) {
+	_, url, _, err := normalizeEndpointAddress(host)
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint URL %s for %s: %v", host, host, err)
 	}

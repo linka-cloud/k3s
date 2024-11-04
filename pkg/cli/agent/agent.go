@@ -17,7 +17,6 @@ import (
 	k3smetrics "github.com/k3s-io/k3s/pkg/metrics"
 	"github.com/k3s-io/k3s/pkg/proctitle"
 	"github.com/k3s-io/k3s/pkg/profile"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/rancher/wrangler/v3/pkg/signals"
@@ -90,15 +89,6 @@ func Run(ctx *cli.Context) error {
 	contextCtx := signals.SetupSignalContext()
 
 	go cmds.WriteCoverage(contextCtx)
-
-	// Until the agent is run and retrieves config from the server, we won't know
-	// if the embedded registry is enabled. If it is not enabled, these are not
-	// used as the registry is never started.
-	registry := spegel.DefaultRegistry
-	registry.Bootstrapper = spegel.NewAgentBootstrapper(cfg.ServerURL, cfg.Token, cfg.DataDir)
-	registry.Router = func(ctx context.Context, nodeConfig *config.Node) (*mux.Router, error) {
-		return https.Start(ctx, nodeConfig, nil)
-	}
 
 	// same deal for metrics - these are not used if the extra metrics listener is not enabled.
 	metrics := k3smetrics.DefaultMetrics
