@@ -1,19 +1,18 @@
 package containerd
 
 import (
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/k3s-io/k3s/pkg/agent/templates"
-	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/spegel"
 	"github.com/rancher/wharfie/pkg/registries"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/k3s-io/k3s/pkg/agent/templates"
+	"github.com/k3s-io/k3s/pkg/daemons/config"
 )
 
 func init() {
@@ -32,7 +31,6 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 	type args struct {
 		registryContent   string
 		noDefaultEndpoint bool
-		mirrorAddr        string
 	}
 	tests := []struct {
 		name string
@@ -64,49 +62,6 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 				`,
 			},
 			want: HostConfigs{},
-		},
-		{
-			name: "registry with default endpoint - embedded registry",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						docker.io:
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry-1.docker.io/v2"),
-					},
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
 		},
 		{
 			name: "registry with default endpoint and creds",
@@ -870,329 +825,6 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "registry with mirror endpoint and mirror creds - embedded registry",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						docker.io:
-						  endpoint:
-							  - https://registry.example.com/v2
-					configs:
-					  registry.example.com:
-						  auth:
-							  username: user
-								password: pass
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry-1.docker.io/v2"),
-					},
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-							Config: registries.RegistryConfig{
-								Auth: &registries.AuthConfig{
-									Username: "user",
-									Password: "pass",
-								},
-							},
-						},
-					},
-				},
-				"registry.example.com": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry.example.com/v2"),
-						Config: registries.RegistryConfig{
-							Auth: &registries.AuthConfig{
-								Username: "user",
-								Password: "pass",
-							},
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "registry with mirror endpoint and mirror creds - embedded registry with rewrites",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						docker.io:
-						  endpoint:
-							  - https://registry.example.com/v2
-							rewrite:
-							  "^rancher/(.*)": "docker/rancher-images/$1"
-					configs:
-					  registry.example.com:
-						  auth:
-							  username: user
-								password: pass
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry-1.docker.io/v2"),
-					},
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-							Config: registries.RegistryConfig{
-								Auth: &registries.AuthConfig{
-									Username: "user",
-									Password: "pass",
-								},
-							},
-							Rewrites: map[string]string{
-								"^rancher/(.*)": "docker/rancher-images/$1",
-							},
-						},
-					},
-				},
-				"registry.example.com": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry.example.com/v2"),
-						Config: registries.RegistryConfig{
-							Auth: &registries.AuthConfig{
-								Username: "user",
-								Password: "pass",
-							},
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "registry with mirror endpoint and mirror creds - embedded registry and no default endpoint",
-			args: args{
-				mirrorAddr:        "127.0.0.1:6443",
-				noDefaultEndpoint: true,
-				registryContent: `
-				  mirrors:
-						docker.io:
-						  endpoint:
-							  - https://registry.example.com/v2
-					configs:
-					  registry.example.com:
-						  auth:
-							  username: user
-								password: pass
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-							Config: registries.RegistryConfig{
-								Auth: &registries.AuthConfig{
-									Username: "user",
-									Password: "pass",
-								},
-							},
-						},
-					},
-				},
-				"registry.example.com": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry.example.com/v2"),
-						Config: registries.RegistryConfig{
-							Auth: &registries.AuthConfig{
-								Username: "user",
-								Password: "pass",
-							},
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "registry with mirror endpoint - embedded registry, default endpoint explicitly listed",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						docker.io:
-						  endpoint:
-							  - registry.example.com
-							  - registry.example.org
-								- docker.io
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://registry-1.docker.io/v2"),
-					},
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-						},
-						{
-							URL: u("https://registry.example.org/v2"),
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "registry with mirror endpoint - embedded registry and no default endpoint, default endpoint explicitly listed",
-			args: args{
-				mirrorAddr:        "127.0.0.1:6443",
-				noDefaultEndpoint: true,
-				registryContent: `
-				  mirrors:
-						docker.io:
-						  endpoint:
-							  - registry.example.com
-								- registry.example.org
-								- docker.io
-				`,
-			},
-			want: HostConfigs{
-				"docker.io": templates.HostConfig{
-					Program: "k3s",
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-						},
-						{
-							URL: u("https://registry.example.org/v2"),
-						},
-						{
-							URL: u("https://registry-1.docker.io/v2"),
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name: "wildcard mirror endpoint - no endpoints",
 			args: args{
 				registryContent: `
@@ -1221,100 +853,6 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 					Endpoints: []templates.RegistryEndpoint{
 						{
 							URL: u("https://registry.example.com/v2"),
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "wildcard mirror endpoint - full URL, embedded registry",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						"*":
-							endpoint:
-								- https://registry.example.com/v2
-				`,
-			},
-			want: HostConfigs{
-				"_default": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u(""),
-					},
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "wildcard mirror endpoint - full URL, embedded registry, no default",
-			args: args{
-				noDefaultEndpoint: true,
-				mirrorAddr:        "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						"*":
-							endpoint:
-								- https://registry.example.com/v2
-				`,
-			},
-			want: HostConfigs{
-				"_default": templates.HostConfig{
-					Program: "k3s",
-					Endpoints: []templates.RegistryEndpoint{
-						{
-							URL: u("https://127.0.0.1:6443/v2"),
-							Config: registries.RegistryConfig{
-								TLS: &registries.TLSConfig{
-									CAFile:   "server-ca",
-									KeyFile:  "client-key",
-									CertFile: "client-cert",
-								},
-							},
-						},
-						{
-							URL: u("https://registry.example.com/v2"),
-						},
-					},
-				},
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
 						},
 					},
 				},
@@ -1392,32 +930,6 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 			want: HostConfigs{},
 		},
 		{
-			name: "localhost registry - default http endpoint on odd port, embedded registry",
-			args: args{
-				mirrorAddr: "127.0.0.1:6443",
-				registryContent: `
-				  mirrors:
-						"localhost:5000":
-				`,
-			},
-			want: HostConfigs{
-				// localhost registries are not handled by the embedded registry mirror.
-				"127.0.0.1:6443": templates.HostConfig{
-					Program: "k3s",
-					Default: &templates.RegistryEndpoint{
-						URL: u("https://127.0.0.1:6443/v2"),
-						Config: registries.RegistryConfig{
-							TLS: &registries.TLSConfig{
-								CAFile:   "server-ca",
-								KeyFile:  "client-key",
-								CertFile: "client-cert",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name: "localhost registry - https endpoint on odd port with tls verification disabled",
 			args: args{
 				registryContent: `
@@ -1482,18 +994,8 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 				},
 			}
 
-			// set up embedded registry, if enabled for the test
-			if tt.args.mirrorAddr != "" {
-				conf := spegel.DefaultRegistry
-				conf.ServerCAFile = "server-ca"
-				conf.ClientKeyFile = "client-key"
-				conf.ClientCertFile = "client-cert"
-				conf.InternalAddress, conf.RegistryPort, _ = net.SplitHostPort(tt.args.mirrorAddr)
-				conf.InjectMirror(nodeConfig)
-			}
-
 			// Generate config template struct for all hosts
-			got := getHostConfigs(registry.Registry, tt.args.noDefaultEndpoint, tt.args.mirrorAddr)
+			got := getHostConfigs(registry.Registry, tt.args.noDefaultEndpoint)
 			assert.Equal(t, tt.want, got, "getHostConfigs()")
 
 			// Confirm that hosts.toml renders properly for all registries
