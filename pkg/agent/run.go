@@ -12,28 +12,6 @@ import (
 	"time"
 
 	systemd "github.com/coreos/go-systemd/v22/daemon"
-	"github.com/k3s-io/k3s/pkg/agent/config"
-	"github.com/k3s-io/k3s/pkg/agent/containerd"
-	"github.com/k3s-io/k3s/pkg/agent/flannel"
-	"github.com/k3s-io/k3s/pkg/agent/netpol"
-	"github.com/k3s-io/k3s/pkg/agent/proxy"
-	"github.com/k3s-io/k3s/pkg/agent/syssetup"
-	"github.com/k3s-io/k3s/pkg/agent/tunnel"
-	"github.com/k3s-io/k3s/pkg/certmonitor"
-	"github.com/k3s-io/k3s/pkg/cgroups"
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	"github.com/k3s-io/k3s/pkg/clientaccess"
-	cp "github.com/k3s-io/k3s/pkg/cloudprovider"
-	"github.com/k3s-io/k3s/pkg/daemons/agent"
-	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/daemons/executor"
-	"github.com/k3s-io/k3s/pkg/metrics"
-	"github.com/k3s-io/k3s/pkg/nodeconfig"
-	"github.com/k3s-io/k3s/pkg/profile"
-	"github.com/k3s-io/k3s/pkg/rootless"
-	"github.com/k3s-io/k3s/pkg/spegel"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -52,6 +30,27 @@ import (
 	kubeproxyconfig "k8s.io/kubernetes/pkg/proxy/apis/config"
 	utilsnet "k8s.io/utils/net"
 	utilsptr "k8s.io/utils/ptr"
+
+	"github.com/k3s-io/k3s/pkg/agent/config"
+	"github.com/k3s-io/k3s/pkg/agent/containerd"
+	"github.com/k3s-io/k3s/pkg/agent/flannel"
+	"github.com/k3s-io/k3s/pkg/agent/netpol"
+	"github.com/k3s-io/k3s/pkg/agent/proxy"
+	"github.com/k3s-io/k3s/pkg/agent/syssetup"
+	"github.com/k3s-io/k3s/pkg/agent/tunnel"
+	"github.com/k3s-io/k3s/pkg/certmonitor"
+	"github.com/k3s-io/k3s/pkg/cgroups"
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	"github.com/k3s-io/k3s/pkg/clientaccess"
+	"github.com/k3s-io/k3s/pkg/daemons/agent"
+	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/daemons/executor"
+	"github.com/k3s-io/k3s/pkg/metrics"
+	"github.com/k3s-io/k3s/pkg/nodeconfig"
+	"github.com/k3s-io/k3s/pkg/profile"
+	"github.com/k3s-io/k3s/pkg/rootless"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
@@ -105,16 +104,6 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 	nodeConfig.AgentConfig.EnableIPv4 = enableIPv4
 	nodeConfig.AgentConfig.EnableIPv6 = enableIPv6
 
-	if nodeConfig.EmbeddedRegistry {
-		if nodeConfig.Docker || nodeConfig.ContainerRuntimeEndpoint != "" {
-			return errors.New("embedded registry mirror requires embedded containerd")
-		}
-
-		if err := spegel.DefaultRegistry.Start(ctx, nodeConfig); err != nil {
-			return errors.Wrap(err, "failed to start embedded registry")
-		}
-	}
-
 	if nodeConfig.SupervisorMetrics {
 		if err := metrics.DefaultMetrics.Start(ctx, nodeConfig); err != nil {
 			return errors.Wrap(err, "failed to serve metrics")
@@ -138,19 +127,13 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 	if !nodeConfig.NoFlannel {
 		if (nodeConfig.FlannelExternalIP) && (len(nodeConfig.AgentConfig.NodeExternalIPs) == 0) {
 			logrus.Warnf("Server has flannel-external-ip flag set but this node does not set node-external-ip. Flannel will use internal address when connecting to this node.")
-		} else if (nodeConfig.FlannelExternalIP) && (nodeConfig.FlannelBackend != daemonconfig.FlannelBackendWireguardNative) {
-			logrus.Warnf("Flannel is using external addresses with an insecure backend: %v. Please consider using an encrypting flannel backend.", nodeConfig.FlannelBackend)
 		}
 		if err := flannel.Prepare(ctx, nodeConfig); err != nil {
 			return err
 		}
 	}
 
-	if nodeConfig.Docker {
-		if err := executor.Docker(ctx, nodeConfig); err != nil {
-			return err
-		}
-	} else if nodeConfig.ContainerRuntimeEndpoint == "" {
+	if nodeConfig.ContainerRuntimeEndpoint == "" {
 		if err := containerd.SetupContainerdConfig(nodeConfig); err != nil {
 			return err
 		}
@@ -391,17 +374,6 @@ func configureNode(ctx context.Context, nodeConfig *daemonconfig.Node, nodes typ
 			updateNode = true
 		}
 
-		if !agentConfig.DisableCCM {
-			if annotations, changed := updateAddressAnnotations(nodeConfig, node.Annotations); changed {
-				node.Annotations = annotations
-				updateNode = true
-			}
-			if labels, changed := updateLegacyAddressLabels(agentConfig, node.Labels); changed {
-				node.Labels = labels
-				updateNode = true
-			}
-		}
-
 		// inject node config
 		if changed, err := nodeconfig.SetNodeConfigAnnotations(nodeConfig, node); err != nil {
 			return false, err
@@ -449,61 +421,6 @@ func updateMutableLabels(agentConfig *daemonconfig.Agent, nodeLabels map[string]
 	}
 	result = labels.Merge(nodeLabels, result)
 	return result, !equality.Semantic.DeepEqual(nodeLabels, result)
-}
-
-func updateLegacyAddressLabels(agentConfig *daemonconfig.Agent, nodeLabels map[string]string) (map[string]string, bool) {
-	ls := labels.Set(nodeLabels)
-	if ls.Has(cp.InternalIPKey) || ls.Has(cp.HostnameKey) {
-		result := map[string]string{
-			cp.InternalIPKey: agentConfig.NodeIP,
-			cp.HostnameKey:   getHostname(agentConfig),
-		}
-
-		if agentConfig.NodeExternalIP != "" {
-			result[cp.ExternalIPKey] = agentConfig.NodeExternalIP
-		}
-
-		result = labels.Merge(nodeLabels, result)
-		return result, !equality.Semantic.DeepEqual(nodeLabels, result)
-	}
-	return nil, false
-}
-
-// updateAddressAnnotations updates the node annotations with important information about IP addresses of the node
-func updateAddressAnnotations(nodeConfig *daemonconfig.Node, nodeAnnotations map[string]string) (map[string]string, bool) {
-	agentConfig := &nodeConfig.AgentConfig
-	result := map[string]string{
-		cp.InternalIPKey: util.JoinIPs(agentConfig.NodeIPs),
-		cp.HostnameKey:   getHostname(agentConfig),
-	}
-
-	if agentConfig.NodeExternalIP != "" {
-		result[cp.ExternalIPKey] = util.JoinIPs(agentConfig.NodeExternalIPs)
-		if nodeConfig.FlannelExternalIP {
-			for _, ipAddress := range agentConfig.NodeExternalIPs {
-				if utilsnet.IsIPv4(ipAddress) {
-					result[flannel.FlannelExternalIPv4Annotation] = ipAddress.String()
-				}
-				if utilsnet.IsIPv6(ipAddress) {
-					result[flannel.FlannelExternalIPv6Annotation] = ipAddress.String()
-				}
-			}
-		}
-	}
-
-	if len(agentConfig.NodeInternalDNSs) > 0 {
-		result[cp.InternalDNSKey] = strings.Join(agentConfig.NodeInternalDNSs, ",")
-	} else {
-		delete(result, cp.InternalDNSKey)
-	}
-	if len(agentConfig.NodeExternalDNSs) > 0 {
-		result[cp.ExternalDNSKey] = strings.Join(agentConfig.NodeExternalDNSs, ",")
-	} else {
-		delete(result, cp.ExternalDNSKey)
-	}
-
-	result = labels.Merge(nodeAnnotations, result)
-	return result, !equality.Semantic.DeepEqual(nodeAnnotations, result)
 }
 
 // setupTunnelAndRunAgent should start the setup tunnel before starting kubelet and kubeproxy

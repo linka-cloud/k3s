@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/k3s-io/k3s/pkg/generated/controllers/k3s.cattle.io"
 	"github.com/k3s-io/kine/pkg/endpoint"
 	"github.com/rancher/wharfie/pkg/registries"
 	"github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
@@ -22,17 +21,14 @@ import (
 )
 
 const (
-	FlannelBackendNone            = "none"
-	FlannelBackendVXLAN           = "vxlan"
-	FlannelBackendHostGW          = "host-gw"
-	FlannelBackendWireguardNative = "wireguard-native"
-	FlannelBackendTailscale       = "tailscale"
-	EgressSelectorModeAgent       = "agent"
-	EgressSelectorModeCluster     = "cluster"
-	EgressSelectorModeDisabled    = "disabled"
-	EgressSelectorModePod         = "pod"
-	CertificateRenewDays          = 90
-	StreamServerPort              = "10010"
+	FlannelBackendNone         = "none"
+	FlannelBackendHostGW       = "host-gw"
+	EgressSelectorModeAgent    = "agent"
+	EgressSelectorModeCluster  = "cluster"
+	EgressSelectorModeDisabled = "disabled"
+	EgressSelectorModePod      = "pod"
+	CertificateRenewDays       = 90
+	StreamServerPort           = "10010"
 )
 
 type Node struct {
@@ -43,7 +39,6 @@ type Node struct {
 	SELinux                  bool
 	EnablePProf              bool
 	SupervisorMetrics        bool
-	EmbeddedRegistry         bool
 	FlannelBackend           string
 	FlannelConfFile          string
 	FlannelConfOverride      bool
@@ -146,13 +141,11 @@ type Agent struct {
 	Registry                *registries.Registry
 	SystemDefaultRegistry   string
 	AirgapExtraRegistry     []string
-	DisableCCM              bool
 	DisableNPC              bool
 	MinTLSVersion           string
 	CipherSuites            []string
 	Rootless                bool
 	ProtectKernelDefaults   bool
-	DisableServiceLB        bool
 	EnableIPv4              bool
 	EnableIPv6              bool
 	VLevel                  int
@@ -164,24 +157,20 @@ type Agent struct {
 // CriticalControlArgs contains parameters that all control plane nodes in HA must share
 // The cli tag is used to provide better error information to the user on mismatch
 type CriticalControlArgs struct {
-	ClusterDNSs           []net.IP     `cli:"cluster-dns"`
-	ClusterIPRanges       []*net.IPNet `cli:"cluster-cidr"`
-	ClusterDNS            net.IP       `cli:"cluster-dns"`
-	ClusterDomain         string       `cli:"cluster-domain"`
-	ClusterIPRange        *net.IPNet   `cli:"cluster-cidr"`
-	DisableCCM            bool         `cli:"disable-cloud-controller"`
-	DisableHelmController bool         `cli:"disable-helm-controller"`
-	DisableNPC            bool         `cli:"disable-network-policy"`
-	DisableServiceLB      bool         `cli:"disable-service-lb"`
-	EncryptSecrets        bool         `cli:"secrets-encryption"`
-	EmbeddedRegistry      bool         `cli:"embedded-registry"`
-	FlannelBackend        string       `cli:"flannel-backend"`
-	FlannelIPv6Masq       bool         `cli:"flannel-ipv6-masq"`
-	FlannelExternalIP     bool         `cli:"flannel-external-ip"`
-	EgressSelectorMode    string       `cli:"egress-selector-mode"`
-	ServiceIPRange        *net.IPNet   `cli:"service-cidr"`
-	ServiceIPRanges       []*net.IPNet `cli:"service-cidr"`
-	SupervisorMetrics     bool         `cli:"supervisor-metrics"`
+	ClusterDNSs        []net.IP     `cli:"cluster-dns"`
+	ClusterIPRanges    []*net.IPNet `cli:"cluster-cidr"`
+	ClusterDNS         net.IP       `cli:"cluster-dns"`
+	ClusterDomain      string       `cli:"cluster-domain"`
+	ClusterIPRange     *net.IPNet   `cli:"cluster-cidr"`
+	DisableNPC         bool         `cli:"disable-network-policy"`
+	EncryptSecrets     bool         `cli:"secrets-encryption"`
+	FlannelBackend     string       `cli:"flannel-backend"`
+	FlannelIPv6Masq    bool         `cli:"flannel-ipv6-masq"`
+	FlannelExternalIP  bool         `cli:"flannel-external-ip"`
+	EgressSelectorMode string       `cli:"egress-selector-mode"`
+	ServiceIPRange     *net.IPNet   `cli:"service-cidr"`
+	ServiceIPRanges    []*net.IPNet `cli:"service-cidr"`
+	SupervisorMetrics  bool         `cli:"supervisor-metrics"`
 }
 
 type Control struct {
@@ -201,18 +190,15 @@ type Control struct {
 	KubeConfigOutput         string
 	KubeConfigMode           string
 	KubeConfigGroup          string
-	HelmJobImage             string
 	DataDir                  string
 	KineTLS                  bool
 	Datastore                endpoint.Config `json:"-"`
-	Disables                 map[string]bool
 	DisableAgent             bool
 	DisableAPIServer         bool
 	DisableControllerManager bool
 	DisableETCD              bool
 	DisableKubeProxy         bool
 	DisableScheduler         bool
-	DisableServiceLB         bool
 	Rootless                 bool
 	ServiceLBNamespace       string
 	ExtraAPIArgs             []string
@@ -224,7 +210,6 @@ type Control struct {
 	JoinURL                  string
 	IPSECPSK                 string
 	DefaultLocalStoragePath  string
-	Skips                    map[string]bool
 	SystemDefaultRegistry    string
 	ClusterInit              bool
 	ClusterReset             bool
@@ -370,7 +355,6 @@ type ControlRuntime struct {
 	ClientETCDCert           string
 	ClientETCDKey            string
 
-	K3s        *k3s.Factory
 	Core       *core.Factory
 	Event      record.EventRecorder
 	EtcdConfig endpoint.ETCDConfig

@@ -7,20 +7,20 @@ import (
 	"context"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/rootless"
 	coreClients "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/rootless-containers/rootlesskit/pkg/api/client"
 	"github.com/rootless-containers/rootlesskit/pkg/port"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/k3s-io/k3s/pkg/rootless"
 )
 
 var (
 	all = "_all_"
 )
 
-func Register(ctx context.Context, serviceController coreClients.ServiceController, enabled bool, httpsPort int) error {
+func Register(ctx context.Context, serviceController coreClients.ServiceController, httpsPort int) error {
 	var (
 		err            error
 		rootlessClient client.Client
@@ -44,7 +44,6 @@ func Register(ctx context.Context, serviceController coreClients.ServiceControll
 	}
 
 	h := &handler{
-		enabled:        enabled,
 		rootlessClient: rootlessClient,
 		serviceClient:  serviceController,
 		serviceCache:   serviceController.Cache(),
@@ -58,7 +57,6 @@ func Register(ctx context.Context, serviceController coreClients.ServiceControll
 }
 
 type handler struct {
-	enabled        bool
 	rootlessClient client.Client
 	serviceClient  coreClients.ServiceController
 	serviceCache   coreClients.ServiceCache
@@ -119,42 +117,8 @@ func (h *handler) serviceChanged(key string, svc *v1.Service) (*v1.Service, erro
 }
 
 func (h *handler) toBindPorts() (map[int]int, error) {
-	svcs, err := h.serviceCache.List("", labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
 	toBindPorts := map[int]int{
 		h.httpsPort: h.httpsPort,
-	}
-
-	if !h.enabled {
-		return toBindPorts, nil
-	}
-
-	for _, svc := range svcs {
-		for _, ingress := range svc.Status.LoadBalancer.Ingress {
-			if ingress.IP == "" {
-				continue
-			}
-
-			for _, port := range svc.Spec.Ports {
-				if port.Protocol != v1.ProtocolTCP {
-					continue
-				}
-
-				for _, toBindPort := range []int32{port.Port, port.NodePort} {
-					if toBindPort == 0 {
-						continue
-					}
-					if toBindPort <= 1024 {
-						toBindPorts[10000+int(toBindPort)] = int(toBindPort)
-					} else {
-						toBindPorts[int(toBindPort)] = int(toBindPort)
-					}
-				}
-			}
-		}
 	}
 
 	return toBindPorts, nil

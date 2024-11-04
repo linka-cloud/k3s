@@ -3,22 +3,15 @@ package cmds
 import (
 	"context"
 	"sync"
-	"time"
+
+	"github.com/urfave/cli"
 
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/urfave/cli"
-)
-
-const (
-	defaultSnapshotRentention    = 5
-	defaultSnapshotIntervalHours = 12
 )
 
 type StartupHookArgs struct {
 	APIServerReady       <-chan struct{}
 	KubeConfigSupervisor string
-	Skips                map[string]bool
-	Disables             map[string]bool
 }
 
 type StartupHook func(context.Context, *sync.WaitGroup, StartupHookArgs) error
@@ -46,7 +39,6 @@ type Server struct {
 	KubeConfigOutput         string
 	KubeConfigMode           string
 	KubeConfigGroup          string
-	HelmJobImage             string
 	TLSSan                   cli.StringSlice
 	TLSSanSecurity           bool
 	ExtraAPIArgs             cli.StringSlice
@@ -69,9 +61,7 @@ type Server struct {
 	FlannelExternalIP        bool
 	EgressSelectorMode       string
 	DefaultLocalStoragePath  string
-	DisableCCM               bool
 	DisableNPC               bool
-	DisableHelmController    bool
 	DisableKubeProxy         bool
 	DisableAPIServer         bool
 	DisableControllerManager bool
@@ -87,27 +77,7 @@ type Server struct {
 	SystemDefaultRegistry    string
 	StartupHooks             []StartupHook
 	SupervisorMetrics        bool
-	EtcdSnapshotName         string
-	EtcdDisableSnapshots     bool
 	EtcdExposeMetrics        bool
-	EtcdSnapshotDir          string
-	EtcdSnapshotCron         string
-	EtcdSnapshotRetention    int
-	EtcdSnapshotCompress     bool
-	EtcdListFormat           string
-	EtcdS3                   bool
-	EtcdS3Endpoint           string
-	EtcdS3EndpointCA         string
-	EtcdS3SkipSSLVerify      bool
-	EtcdS3AccessKey          string
-	EtcdS3SecretKey          string
-	EtcdS3BucketName         string
-	EtcdS3Region             string
-	EtcdS3Folder             string
-	EtcdS3Proxy              string
-	EtcdS3ConfigSecret       string
-	EtcdS3Timeout            time.Duration
-	EtcdS3Insecure           bool
 	ServiceLBNamespace       string
 }
 
@@ -216,9 +186,9 @@ var ServerFlags = []cli.Flag{
 	ClusterDomain,
 	&cli.StringFlag{
 		Name:        "flannel-backend",
-		Usage:       "(networking) Backend (valid values: 'none', 'vxlan', 'host-gw', 'wireguard-native'",
+		Usage:       "(networking) Backend (valid values: 'none', 'host-gw'",
 		Destination: &ServerConfig.FlannelBackend,
-		Value:       "vxlan",
+		Value:       "host-gw",
 	},
 	&cli.BoolFlag{
 		Name:        "flannel-ipv6-masq",
@@ -259,11 +229,6 @@ var ServerFlags = []cli.Flag{
 		Usage:       "(client) Write kubeconfig with this group",
 		Destination: &ServerConfig.KubeConfigGroup,
 		EnvVar:      version.ProgramUpper + "_KUBECONFIG_GROUP",
-	},
-	&cli.StringFlag{
-		Name:        "helm-job-image",
-		Usage:       "(helm) Default image to use for helm jobs",
-		Destination: &ServerConfig.HelmJobImage,
 	},
 	ServerToken,
 	&cli.StringFlag{
@@ -351,127 +316,15 @@ var ServerFlags = []cli.Flag{
 		Usage:       "(db) Expose etcd metrics to client interface. (default: false)",
 		Destination: &ServerConfig.EtcdExposeMetrics,
 	},
-	&cli.BoolFlag{
-		Name:        "etcd-disable-snapshots",
-		Usage:       "(db) Disable automatic etcd snapshots",
-		Destination: &ServerConfig.EtcdDisableSnapshots,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-name",
-		Usage:       "(db) Set the base name of etcd snapshots (default: etcd-snapshot-<unix-timestamp>)",
-		Destination: &ServerConfig.EtcdSnapshotName,
-		Value:       "etcd-snapshot",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-schedule-cron",
-		Usage:       "(db) Snapshot interval time in cron spec. eg. every 5 hours '0 */5 * * *'",
-		Destination: &ServerConfig.EtcdSnapshotCron,
-		Value:       "0 */12 * * *",
-	},
-	&cli.IntFlag{
-		Name:        "etcd-snapshot-retention",
-		Usage:       "(db) Number of snapshots to retain",
-		Destination: &ServerConfig.EtcdSnapshotRetention,
-		Value:       defaultSnapshotRentention,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-snapshot-dir",
-		Usage:       "(db) Directory to save db snapshots. (default: ${data-dir}/db/snapshots)",
-		Destination: &ServerConfig.EtcdSnapshotDir,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-snapshot-compress",
-		Usage:       "(db) Compress etcd snapshot",
-		Destination: &ServerConfig.EtcdSnapshotCompress,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3",
-		Usage:       "(db) Enable backup to S3",
-		Destination: &ServerConfig.EtcdS3,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-endpoint",
-		Usage:       "(db) S3 endpoint url",
-		Destination: &ServerConfig.EtcdS3Endpoint,
-		Value:       "s3.amazonaws.com",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-endpoint-ca",
-		Usage:       "(db) S3 custom CA cert to connect to S3 endpoint",
-		Destination: &ServerConfig.EtcdS3EndpointCA,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3-skip-ssl-verify",
-		Usage:       "(db) Disables S3 SSL certificate validation",
-		Destination: &ServerConfig.EtcdS3SkipSSLVerify,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-access-key",
-		Usage:       "(db) S3 access key",
-		EnvVar:      "AWS_ACCESS_KEY_ID",
-		Destination: &ServerConfig.EtcdS3AccessKey,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-secret-key",
-		Usage:       "(db) S3 secret key",
-		EnvVar:      "AWS_SECRET_ACCESS_KEY",
-		Destination: &ServerConfig.EtcdS3SecretKey,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-bucket",
-		Usage:       "(db) S3 bucket name",
-		Destination: &ServerConfig.EtcdS3BucketName,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-region",
-		Usage:       "(db) S3 region / bucket location (optional)",
-		Destination: &ServerConfig.EtcdS3Region,
-		Value:       "us-east-1",
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-folder",
-		Usage:       "(db) S3 folder",
-		Destination: &ServerConfig.EtcdS3Folder,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-proxy",
-		Usage:       "(db) Proxy server to use when connecting to S3, overriding any proxy-releated environment variables",
-		Destination: &ServerConfig.EtcdS3Proxy,
-	},
-	&cli.StringFlag{
-		Name:        "etcd-s3-config-secret",
-		Usage:       "(db) Name of secret in the kube-system namespace used to configure S3, if etcd-s3 is enabled and no other etcd-s3 options are set",
-		Destination: &ServerConfig.EtcdS3ConfigSecret,
-	},
-	&cli.BoolFlag{
-		Name:        "etcd-s3-insecure",
-		Usage:       "(db) Disables S3 over HTTPS",
-		Destination: &ServerConfig.EtcdS3Insecure,
-	},
-	&cli.DurationFlag{
-		Name:        "etcd-s3-timeout",
-		Usage:       "(db) S3 timeout",
-		Destination: &ServerConfig.EtcdS3Timeout,
-		Value:       5 * time.Minute,
-	},
 	&cli.StringFlag{
 		Name:        "default-local-storage-path",
 		Usage:       "(storage) Default local storage path for local provisioner storage class",
 		Destination: &ServerConfig.DefaultLocalStoragePath,
 	},
-	&cli.StringSliceFlag{
-		Name:  "disable",
-		Usage: "(components) Do not deploy packaged components and delete any deployed components (valid items: " + DisableItems + ")",
-	},
 	&cli.BoolFlag{
 		Name:        "disable-scheduler",
 		Usage:       "(components) Disable Kubernetes default scheduler",
 		Destination: &ServerConfig.DisableScheduler,
-	},
-	&cli.BoolFlag{
-		Name:        "disable-cloud-controller",
-		Usage:       "(components) Disable " + version.Program + " default cloud controller manager",
-		Destination: &ServerConfig.DisableCCM,
 	},
 	&cli.BoolFlag{
 		Name:        "disable-kube-proxy",
@@ -482,11 +335,6 @@ var ServerFlags = []cli.Flag{
 		Name:        "disable-network-policy",
 		Usage:       "(components) Disable " + version.Program + " default network policy controller",
 		Destination: &ServerConfig.DisableNPC,
-	},
-	&cli.BoolFlag{
-		Name:        "disable-helm-controller",
-		Usage:       "(components) Disable Helm controller",
-		Destination: &ServerConfig.DisableHelmController,
 	},
 	&cli.BoolFlag{
 		Name:        "disable-apiserver",
@@ -522,7 +370,6 @@ var ServerFlags = []cli.Flag{
 	NodeTaints,
 	ImageCredProvBinDirFlag,
 	ImageCredProvConfigFlag,
-	DockerFlag,
 	CRIEndpointFlag,
 	DefaultRuntimeFlag,
 	ImageServiceEndpointFlag,
@@ -545,8 +392,6 @@ var ServerFlags = []cli.Flag{
 	FlannelIfaceFlag,
 	FlannelConfFlag,
 	FlannelCniConfFileFlag,
-	VPNAuth,
-	VPNAuthFile,
 	ExtraKubeletArgs,
 	ExtraKubeProxyArgs,
 	ProtectKernelDefaultsFlag,

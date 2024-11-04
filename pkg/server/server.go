@@ -11,31 +11,25 @@ import (
 	"sync"
 	"time"
 
-	helmchart "github.com/k3s-io/helm-controller/pkg/controllers/chart"
-	helmcommon "github.com/k3s-io/helm-controller/pkg/controllers/common"
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	"github.com/k3s-io/k3s/pkg/clientaccess"
-	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/daemons/control"
-	"github.com/k3s-io/k3s/pkg/datadir"
-	"github.com/k3s-io/k3s/pkg/deploy"
-	"github.com/k3s-io/k3s/pkg/node"
-	"github.com/k3s-io/k3s/pkg/nodepassword"
-	"github.com/k3s-io/k3s/pkg/rootlessports"
-	"github.com/k3s-io/k3s/pkg/secretsencrypt"
-	"github.com/k3s-io/k3s/pkg/static"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
-	"github.com/rancher/wrangler/v3/pkg/apply"
 	v1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/v3/pkg/leader"
 	"github.com/rancher/wrangler/v3/pkg/resolvehome"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	"github.com/k3s-io/k3s/pkg/clientaccess"
+	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/daemons/control"
+	"github.com/k3s-io/k3s/pkg/datadir"
+	"github.com/k3s-io/k3s/pkg/node"
+	"github.com/k3s-io/k3s/pkg/nodepassword"
+	"github.com/k3s-io/k3s/pkg/rootlessports"
+	"github.com/k3s-io/k3s/pkg/secretsencrypt"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 func ResolveDataDir(dataDir string) (string, error) {
@@ -65,8 +59,6 @@ func StartServer(ctx context.Context, config *Config, cfg *cmds.Server) error {
 	shArgs := cmds.StartupHookArgs{
 		APIServerReady:       config.ControlConfig.Runtime.APIServerReady,
 		KubeConfigSupervisor: config.ControlConfig.Runtime.KubeConfigSupervisor,
-		Skips:                config.ControlConfig.Skips,
-		Disables:             config.ControlConfig.Disables,
 	}
 	for _, hook := range config.StartupHooks {
 		if err := hook(ctx, wg, shArgs); err != nil {
@@ -102,9 +94,6 @@ func runControllers(ctx context.Context, config *Config) error {
 	}
 
 	controlConfig.Runtime.StartupHooksWg.Wait()
-	if err := stageFiles(ctx, sc, controlConfig); err != nil {
-		return errors.Wrap(err, "failed to stage files")
-	}
 
 	// run migration before we set controlConfig.Runtime.Core
 	if err := nodepassword.MigrateFile(
@@ -113,7 +102,6 @@ func runControllers(ctx context.Context, config *Config) error {
 		controlConfig.Runtime.NodePasswdFile); err != nil {
 		logrus.Warn(errors.Wrap(err, "error migrating node-password file"))
 	}
-	controlConfig.Runtime.K3s = sc.K3s
 	controlConfig.Runtime.Event = sc.Event
 	controlConfig.Runtime.Core = sc.Core
 
@@ -187,144 +175,24 @@ func runOrDie(ctx context.Context, name string, cb leader.Callback) {
 
 // coreControllers starts the following controllers, if they are enabled:
 // * Node controller (manages nodes passwords and coredns hosts file)
-// * Helm controller
 // * Secrets encryption
 // * Rootless ports
 // These controllers should only be run on nodes with a local apiserver
 func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 	if err := node.Register(ctx,
-		!config.ControlConfig.Skips["coredns"],
 		sc.Core.Core().V1().Secret(),
 		sc.Core.Core().V1().ConfigMap(),
 		sc.Core.Core().V1().Node()); err != nil {
 		return err
 	}
 
-	// apply SystemDefaultRegistry setting to Helm before starting controllers
-	if config.ControlConfig.HelmJobImage != "" {
-		helmchart.DefaultJobImage = config.ControlConfig.HelmJobImage
-	} else if config.ControlConfig.SystemDefaultRegistry != "" {
-		helmchart.DefaultJobImage = config.ControlConfig.SystemDefaultRegistry + "/" + helmchart.DefaultJobImage
-	}
-
-	if !config.ControlConfig.DisableHelmController {
-		restConfig, err := clientcmd.BuildConfigFromFlags("", config.ControlConfig.Runtime.KubeConfigSupervisor)
-		if err != nil {
-			return err
-		}
-		restConfig.UserAgent = util.GetUserAgent(helmcommon.Name)
-
-		k8s, err := clientset.NewForConfig(restConfig)
-		if err != nil {
-			return err
-		}
-
-		apply := apply.New(k8s, apply.NewClientFactory(restConfig)).WithDynamicLookup().WithSetOwnerReference(false, false)
-		helm := sc.Helm.WithAgent(restConfig.UserAgent)
-		batch := sc.Batch.WithAgent(restConfig.UserAgent)
-		auth := sc.Auth.WithAgent(restConfig.UserAgent)
-		core := sc.Core.WithAgent(restConfig.UserAgent)
-		helmchart.Register(ctx,
-			metav1.NamespaceAll,
-			helmcommon.Name,
-			"cluster-admin",
-			strconv.Itoa(config.ControlConfig.APIServerPort),
-			k8s,
-			apply,
-			util.BuildControllerEventRecorder(k8s, helmcommon.Name, metav1.NamespaceAll),
-			helm.V1().HelmChart(),
-			helm.V1().HelmChart().Cache(),
-			helm.V1().HelmChartConfig(),
-			helm.V1().HelmChartConfig().Cache(),
-			batch.V1().Job(),
-			batch.V1().Job().Cache(),
-			auth.V1().ClusterRoleBinding(),
-			core.V1().ServiceAccount(),
-			core.V1().ConfigMap(),
-			core.V1().Secret())
-	}
-
 	if config.ControlConfig.Rootless {
 		return rootlessports.Register(ctx,
 			sc.Core.Core().V1().Service(),
-			!config.ControlConfig.DisableServiceLB,
 			config.ControlConfig.HTTPSPort)
 	}
 
 	return nil
-}
-
-func stageFiles(ctx context.Context, sc *Context, controlConfig *config.Control) error {
-	if controlConfig.DisableAPIServer {
-		return nil
-	}
-	dataDir := filepath.Join(controlConfig.DataDir, "static")
-	if err := static.Stage(dataDir); err != nil {
-		return err
-	}
-	dataDir = filepath.Join(controlConfig.DataDir, "manifests")
-
-	dnsIPFamilyPolicy := "SingleStack"
-	if len(controlConfig.ClusterDNSs) > 1 {
-		dnsIPFamilyPolicy = "RequireDualStack"
-	}
-
-	templateVars := map[string]string{
-		"%{CLUSTER_DNS}%":                 controlConfig.ClusterDNS.String(),
-		"%{CLUSTER_DNS_LIST}%":            fmt.Sprintf("[%s]", util.JoinIPs(controlConfig.ClusterDNSs)),
-		"%{CLUSTER_DNS_IPFAMILYPOLICY}%":  dnsIPFamilyPolicy,
-		"%{CLUSTER_DOMAIN}%":              controlConfig.ClusterDomain,
-		"%{DEFAULT_LOCAL_STORAGE_PATH}%":  controlConfig.DefaultLocalStoragePath,
-		"%{SYSTEM_DEFAULT_REGISTRY}%":     registryTemplate(controlConfig.SystemDefaultRegistry),
-		"%{SYSTEM_DEFAULT_REGISTRY_RAW}%": controlConfig.SystemDefaultRegistry,
-		"%{PREFERRED_ADDRESS_TYPES}%":     addrTypesPrioTemplate(controlConfig.FlannelExternalIP),
-	}
-
-	skip := controlConfig.Skips
-	if err := deploy.Stage(dataDir, templateVars, skip); err != nil {
-		return err
-	}
-
-	restConfig, err := clientcmd.BuildConfigFromFlags("", controlConfig.Runtime.KubeConfigSupervisor)
-	if err != nil {
-		return err
-	}
-	restConfig.UserAgent = util.GetUserAgent("deploy")
-
-	k8s, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
-	apply := apply.New(k8s, apply.NewClientFactory(restConfig)).WithDynamicLookup()
-	k3s := sc.K3s.WithAgent(restConfig.UserAgent)
-
-	return deploy.WatchFiles(ctx,
-		k8s,
-		apply,
-		k3s.V1().Addon(),
-		controlConfig.Disables,
-		dataDir)
-}
-
-// registryTemplate behaves like the system_default_registry template in Rancher helm charts,
-// and returns the registry value with a trailing forward slash if the registry string is not empty.
-// If it is empty, it is passed through as a no-op.
-func registryTemplate(registry string) string {
-	if registry == "" {
-		return registry
-	}
-	return registry + "/"
-}
-
-// addressTypesTemplate prioritizes ExternalIP addresses if we are in the multi-cloud env where
-// cluster traffic flows over the external IPs only
-func addrTypesPrioTemplate(flannelExternal bool) string {
-	if flannelExternal {
-		return "ExternalIP,InternalIP,Hostname"
-	}
-
-	return "InternalIP,ExternalIP,Hostname"
 }
 
 func HomeKubeConfig(write, rootless bool) (string, error) {

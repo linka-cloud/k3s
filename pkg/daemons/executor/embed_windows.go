@@ -12,9 +12,7 @@ import (
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
-
-	// registering k3s cloud provider
-	_ "github.com/k3s-io/k3s/pkg/cloudprovider"
+	
 	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
 )
 

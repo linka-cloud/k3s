@@ -13,12 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/agent/containerd"
-	"github.com/k3s-io/k3s/pkg/agent/cridockerd"
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -44,8 +38,11 @@ import (
 	sapp "k8s.io/kubernetes/cmd/kube-scheduler/app"
 	kubelet "k8s.io/kubernetes/cmd/kubelet/app"
 
-	// registering k3s cloud provider
-	_ "github.com/k3s-io/k3s/pkg/cloudprovider"
+	"github.com/k3s-io/k3s/pkg/agent/containerd"
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 func init() {
@@ -162,14 +159,6 @@ func (e *Embedded) Scheduler(ctx context.Context, apiReady <-chan struct{}, args
 		for e.nodeConfig == nil {
 			runtime.Gosched()
 		}
-		// If we're running the embedded cloud controller, wait for it to untaint at least one
-		// node (usually, the local node) before starting the scheduler to ensure that it
-		// finds a node that is ready to run pods during its initial scheduling loop.
-		if !e.nodeConfig.AgentConfig.DisableCCM {
-			if err := waitForUntaintedNode(ctx, e.nodeConfig.AgentConfig.KubeConfigKubelet); err != nil {
-				logrus.Fatalf("failed to wait for untained node: %v", err)
-			}
-		}
 		defer func() {
 			if err := recover(); err != nil {
 				logrus.WithField("stack", string(debug.Stack())).Fatalf("scheduler panic: %v", err)
@@ -260,10 +249,6 @@ func (e *Embedded) CurrentETCDOptions() (InitialOptions, error) {
 
 func (e *Embedded) Containerd(ctx context.Context, cfg *daemonconfig.Node) error {
 	return containerd.Run(ctx, cfg)
-}
-
-func (e *Embedded) Docker(ctx context.Context, cfg *daemonconfig.Node) error {
-	return cridockerd.Run(ctx, cfg)
 }
 
 // waitForUntaintedNode watches nodes, waiting to find one not tainted as

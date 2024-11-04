@@ -19,12 +19,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/clientaccess"
-	"github.com/k3s-io/k3s/pkg/cloudprovider"
-	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/passwd"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	certutil "github.com/rancher/dynamiclistener/cert"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +27,12 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/keyutil"
+
+	"github.com/k3s-io/k3s/pkg/clientaccess"
+	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/passwd"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 const (
@@ -194,10 +194,6 @@ func GenServerDeps(config *config.Control) error {
 	}
 
 	if err := genEgressSelectorConfig(config); err != nil {
-		return err
-	}
-
-	if err := genCloudConfig(config); err != nil {
 		return err
 	}
 
@@ -825,23 +821,4 @@ func genEgressSelectorConfig(controlConfig *config.Control) error {
 		return err
 	}
 	return os.WriteFile(controlConfig.Runtime.EgressSelectorConfig, b, 0600)
-}
-
-func genCloudConfig(controlConfig *config.Control) error {
-	cloudConfig := cloudprovider.Config{
-		LBDefaultPriorityClassName: cloudprovider.DefaultLBPriorityClassName,
-		LBEnabled:                  !controlConfig.DisableServiceLB,
-		LBNamespace:                controlConfig.ServiceLBNamespace,
-		LBImage:                    cloudprovider.DefaultLBImage,
-		Rootless:                   controlConfig.Rootless,
-		NodeEnabled:                !controlConfig.DisableCCM,
-	}
-	if controlConfig.SystemDefaultRegistry != "" {
-		cloudConfig.LBImage = controlConfig.SystemDefaultRegistry + "/" + cloudConfig.LBImage
-	}
-	b, err := json.Marshal(cloudConfig)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(controlConfig.Runtime.CloudControllerConfig, b, 0600)
 }

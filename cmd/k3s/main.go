@@ -11,6 +11,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+	"github.com/rancher/wrangler/v3/pkg/resolvehome"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/urfave/cli"
+
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/configfilearg"
 	"github.com/k3s-io/k3s/pkg/data"
@@ -19,11 +25,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/flock"
 	"github.com/k3s-io/k3s/pkg/untar"
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/pkg/errors"
-	"github.com/rancher/wrangler/v3/pkg/resolvehome"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"github.com/urfave/cli"
 )
 
 var criDefaultConfigPath = "/etc/crictl.yaml"
@@ -42,7 +43,6 @@ func main() {
 	}
 
 	tokenCommand := internalCLIAction(version.Program+"-"+cmds.TokenCommand, dataDir, os.Args)
-	etcdsnapshotCommand := internalCLIAction(version.Program+"-"+cmds.EtcdSnapshotCommand, dataDir, os.Args)
 	secretsencryptCommand := internalCLIAction(version.Program+"-"+cmds.SecretsEncryptCommand, dataDir, os.Args)
 	certCommand := internalCLIAction(version.Program+"-"+cmds.CertCommand, dataDir, os.Args)
 
@@ -62,12 +62,6 @@ func main() {
 			tokenCommand,
 			tokenCommand,
 			tokenCommand,
-		),
-		cmds.NewEtcdSnapshotCommands(
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
-			etcdsnapshotCommand,
 		),
 		cmds.NewSecretsEncryptCommands(
 			secretsencryptCommand,

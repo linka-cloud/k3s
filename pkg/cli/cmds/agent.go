@@ -4,8 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/urfave/cli"
+
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 type Agent struct {
@@ -15,7 +16,6 @@ type Agent struct {
 	ServerURL                string
 	APIAddressCh             chan []string
 	DisableLoadBalancer      bool
-	DisableServiceLB         bool
 	ETCDAgent                bool
 	LBServerPort             int
 	ResolvConf               string
@@ -36,8 +36,6 @@ type Agent struct {
 	FlannelIface             string
 	FlannelConf              string
 	FlannelCniConfFile       string
-	VPNAuth                  string
-	VPNAuthFile              string
 	Debug                    bool
 	EnablePProf              bool
 	Rootless                 bool
@@ -121,11 +119,6 @@ var (
 		EnvVar:      version.ProgramUpper + "_LB_SERVER_PORT",
 		Value:       6444,
 	}
-	DockerFlag = &cli.BoolFlag{
-		Name:        "docker",
-		Usage:       "(agent/runtime) (experimental) Use cri-dockerd instead of containerd",
-		Destination: &AgentConfig.Docker,
-	}
 	CRIEndpointFlag = &cli.StringFlag{
 		Name:        "container-runtime-endpoint",
 		Usage:       "(agent/runtime) Disable embedded containerd and use the CRI socket at the given path; when used with --docker this sets the docker socket path",
@@ -179,18 +172,6 @@ var (
 		Name:        "flannel-cni-conf",
 		Usage:       "(agent/networking) Override default flannel cni config file",
 		Destination: &AgentConfig.FlannelCniConfFile,
-	}
-	VPNAuth = &cli.StringFlag{
-		Name:        "vpn-auth",
-		Usage:       "(agent/networking) (experimental) Credentials for the VPN provider. It must include the provider name and join key in the format name=<vpn-provider>,joinKey=<key>[,controlServerURL=<url>][,extraArgs=<args>]",
-		EnvVar:      version.ProgramUpper + "_VPN_AUTH",
-		Destination: &AgentConfig.VPNAuth,
-	}
-	VPNAuthFile = &cli.StringFlag{
-		Name:        "vpn-auth-file",
-		Usage:       "(agent/networking) (experimental) File containing credentials for the VPN provider. It must include the provider name and join key in the format name=<vpn-provider>,joinKey=<key>[,controlServerURL=<url>][,extraArgs=<args>]",
-		EnvVar:      version.ProgramUpper + "_VPN_AUTH_FILE",
-		Destination: &AgentConfig.VPNAuthFile,
 	}
 	ResolvConfFlag = &cli.StringFlag{
 		Name:        "resolv-conf",
@@ -324,9 +305,6 @@ func NewAgentCommand(action func(ctx *cli.Context) error) cli.Command {
 			},
 			PreferBundledBin,
 			// Deprecated/hidden below
-			DockerFlag,
-			VPNAuth,
-			VPNAuthFile,
 			DisableAgentLBFlag,
 		},
 	}
