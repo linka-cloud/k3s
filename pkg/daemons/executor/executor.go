@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
 	yaml2 "gopkg.in/yaml.v2"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"sigs.k8s.io/yaml"
+
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
 )
 
 var (
@@ -32,7 +33,6 @@ type Executor interface {
 	ETCD(ctx context.Context, args ETCDConfig, extraArgs []string) error
 	CloudControllerManager(ctx context.Context, ccmRBACReady <-chan struct{}, args []string) error
 	Containerd(ctx context.Context, node *daemonconfig.Node) error
-	Docker(ctx context.Context, node *daemonconfig.Node) error
 }
 
 type ETCDConfig struct {
@@ -176,8 +176,4 @@ func CloudControllerManager(ctx context.Context, ccmRBACReady <-chan struct{}, a
 
 func Containerd(ctx context.Context, config *daemonconfig.Node) error {
 	return executor.Containerd(ctx, config)
-}
-
-func Docker(ctx context.Context, config *daemonconfig.Node) error {
-	return executor.Docker(ctx, config)
 }

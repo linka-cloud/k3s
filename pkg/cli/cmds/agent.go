@@ -4,8 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/urfave/cli"
+
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 type Agent struct {
@@ -120,11 +121,6 @@ var (
 		Destination: &AgentConfig.LBServerPort,
 		EnvVar:      version.ProgramUpper + "_LB_SERVER_PORT",
 		Value:       6444,
-	}
-	DockerFlag = &cli.BoolFlag{
-		Name:        "docker",
-		Usage:       "(agent/runtime) (experimental) Use cri-dockerd instead of containerd",
-		Destination: &AgentConfig.Docker,
 	}
 	CRIEndpointFlag = &cli.StringFlag{
 		Name:        "container-runtime-endpoint",
@@ -324,7 +320,6 @@ func NewAgentCommand(action func(ctx *cli.Context) error) cli.Command {
 			},
 			PreferBundledBin,
 			// Deprecated/hidden below
-			DockerFlag,
 			VPNAuth,
 			VPNAuthFile,
 			DisableAgentLBFlag,

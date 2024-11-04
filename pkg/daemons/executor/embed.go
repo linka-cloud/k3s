@@ -13,12 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/agent/containerd"
-	"github.com/k3s-io/k3s/pkg/agent/cridockerd"
-	"github.com/k3s-io/k3s/pkg/cli/cmds"
-	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/util"
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -43,6 +37,12 @@ import (
 	proxy "k8s.io/kubernetes/cmd/kube-proxy/app"
 	sapp "k8s.io/kubernetes/cmd/kube-scheduler/app"
 	kubelet "k8s.io/kubernetes/cmd/kubelet/app"
+
+	"github.com/k3s-io/k3s/pkg/agent/containerd"
+	"github.com/k3s-io/k3s/pkg/cli/cmds"
+	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 
 	// registering k3s cloud provider
 	_ "github.com/k3s-io/k3s/pkg/cloudprovider"
@@ -260,10 +260,6 @@ func (e *Embedded) CurrentETCDOptions() (InitialOptions, error) {
 
 func (e *Embedded) Containerd(ctx context.Context, cfg *daemonconfig.Node) error {
 	return containerd.Run(ctx, cfg)
-}
-
-func (e *Embedded) Docker(ctx context.Context, cfg *daemonconfig.Node) error {
-	return cridockerd.Run(ctx, cfg)
 }
 
 // waitForUntaintedNode watches nodes, waiting to find one not tainted as
