@@ -15,7 +15,7 @@ var DefaultParser = &Parser{
 	ConfigFlags:   []string{"--config", "-c"},
 	EnvName:       version.ProgramUpper + "_CONFIG_FILE",
 	DefaultConfig: "/etc/rancher/" + version.Program + "/config.yaml",
-	ValidFlags:    map[string][]cli.Flag{"server": cmds.ServerFlags, "etcd-snapshot": cmds.EtcdSnapshotFlags},
+	ValidFlags:    map[string][]cli.Flag{"server": cmds.ServerFlags},
 }
 
 func MustParse(args []string) []string {
