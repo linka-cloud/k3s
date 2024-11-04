@@ -37,7 +37,6 @@ type Node struct {
 	SELinux                  bool
 	EnablePProf              bool
 	SupervisorMetrics        bool
-	EmbeddedRegistry         bool
 	EgressSelectorMode       string
 	Containerd               Containerd
 	Flannel                  Flannel
@@ -172,7 +171,6 @@ type CriticalControlArgs struct {
 	DisableServiceLB      bool         `cli:"disable-service-lb"`
 	EncryptSecrets        bool         `cli:"secrets-encryption"`
 	EncryptProvider       string       `cli:"secrets-encryption-provider"`
-	EmbeddedRegistry      bool         `cli:"embedded-registry"`
 	FlannelBackend        string       `cli:"flannel-backend"`
 	FlannelIPv6Masq       bool         `cli:"flannel-ipv6-masq"`
 	FlannelExternalIP     bool         `cli:"flannel-external-ip"`
