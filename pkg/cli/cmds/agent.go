@@ -121,11 +121,6 @@ var (
 		EnvVar:      version.ProgramUpper + "_LB_SERVER_PORT",
 		Value:       6444,
 	}
-	DockerFlag = &cli.BoolFlag{
-		Name:        "docker",
-		Usage:       "(agent/runtime) (experimental) Use cri-dockerd instead of containerd",
-		Destination: &AgentConfig.Docker,
-	}
 	CRIEndpointFlag = &cli.StringFlag{
 		Name:        "container-runtime-endpoint",
 		Usage:       "(agent/runtime) Disable embedded containerd and use the CRI socket at the given path; when used with --docker this sets the docker socket path",
@@ -324,7 +319,6 @@ func NewAgentCommand(action func(ctx *cli.Context) error) cli.Command {
 			},
 			PreferBundledBin,
 			// Deprecated/hidden below
-			DockerFlag,
 			VPNAuth,
 			VPNAuthFile,
 			DisableAgentLBFlag,

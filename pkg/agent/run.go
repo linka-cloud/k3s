@@ -144,11 +144,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 		}
 	}
 
-	if nodeConfig.Docker {
-		if err := executor.Docker(ctx, nodeConfig); err != nil {
-			return err
-		}
-	} else if nodeConfig.ContainerRuntimeEndpoint == "" {
+	if nodeConfig.ContainerRuntimeEndpoint == "" {
 		if err := containerd.SetupContainerdConfig(nodeConfig); err != nil {
 			return err
 		}
