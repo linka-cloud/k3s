@@ -109,7 +109,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 	}
 
 	if nodeConfig.EmbeddedRegistry {
-		if nodeConfig.Docker || nodeConfig.ContainerRuntimeEndpoint != "" {
+		if nodeConfig.ContainerRuntimeEndpoint != "" {
 			return errors.New("embedded registry mirror requires embedded containerd")
 		}
 
@@ -173,16 +173,12 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 
 // startCRI starts the configured CRI, or waits for an external CRI to be ready.
 func startCRI(ctx context.Context, nodeConfig *daemonconfig.Node) error {
-	if nodeConfig.Docker {
-		return executor.Docker(ctx, nodeConfig)
-	} else if nodeConfig.ContainerRuntimeEndpoint == "" {
+	if nodeConfig.ContainerRuntimeEndpoint == "" {
 		if err := containerd.SetupContainerdConfig(nodeConfig); err != nil {
 			return err
 		}
-		return executor.Containerd(ctx, nodeConfig)
-	} else {
-		return executor.CRI(ctx, nodeConfig)
 	}
+	return executor.Containerd(ctx, nodeConfig)
 }
 
 // startNetwork updates the network annotations on the node and starts the CNI
@@ -259,11 +255,6 @@ func RunStandalone(ctx context.Context, wg *sync.WaitGroup, cfg cmds.Agent) erro
 	}
 
 	if err := executor.Bootstrap(ctx, nodeConfig, cfg); err != nil {
-		return err
-	}
-
-	// this is a no-op just to get the cri ready channel closed
-	if err := executor.CRI(ctx, nodeConfig); err != nil {
 		return err
 	}
 

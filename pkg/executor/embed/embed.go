@@ -19,7 +19,6 @@ import (
 
 	"github.com/k3s-io/k3s/pkg/agent/containerd"
 	"github.com/k3s-io/k3s/pkg/agent/cri"
-	"github.com/k3s-io/k3s/pkg/agent/cridockerd"
 	"github.com/k3s-io/k3s/pkg/agent/flannel"
 	"github.com/k3s-io/k3s/pkg/agent/netpol"
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
@@ -356,10 +355,6 @@ func (e *Embedded) ETCD(ctx context.Context, wg *sync.WaitGroup, args *executor.
 
 func (e *Embedded) Containerd(ctx context.Context, cfg *daemonconfig.Node) error {
 	return executor.CloseIfNilErr(containerd.Run(ctx, cfg), e.criReady)
-}
-
-func (e *Embedded) Docker(ctx context.Context, cfg *daemonconfig.Node) error {
-	return executor.CloseIfNilErr(cridockerd.Run(ctx, cfg), e.criReady)
 }
 
 func (e *Embedded) CRI(ctx context.Context, cfg *daemonconfig.Node) error {

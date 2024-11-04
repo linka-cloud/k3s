@@ -49,11 +49,6 @@ if [ -z "$VERSION_FLANNEL" ]; then
   VERSION_FLANNEL="v0.0.0"
 fi
 
-VERSION_CRI_DOCKERD=$(get-module-version github.com/Mirantis/cri-dockerd)
-if [ -z "$VERSION_CRI_DOCKERD" ]; then
-  VERSION_CRI_DOCKERD="v0.0.0"
-fi
-
 VERSION_CNIPLUGINS="v1.8.0-k3s1"
 VERSION_FLANNEL_PLUGIN="v1.8.0-flannel1"
 
