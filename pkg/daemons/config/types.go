@@ -23,17 +23,14 @@ import (
 )
 
 const (
-	FlannelBackendNone            = "none"
-	FlannelBackendVXLAN           = "vxlan"
-	FlannelBackendHostGW          = "host-gw"
-	FlannelBackendWireguardNative = "wireguard-native"
-	FlannelBackendTailscale       = "tailscale"
-	EgressSelectorModeAgent       = "agent"
-	EgressSelectorModeCluster     = "cluster"
-	EgressSelectorModeDisabled    = "disabled"
-	EgressSelectorModePod         = "pod"
-	CertificateRenewDays          = 120
-	StreamServerPort              = "10010"
+	FlannelBackendNone         = "none"
+	FlannelBackendHostGW       = "host-gw"
+	EgressSelectorModeAgent    = "agent"
+	EgressSelectorModeCluster  = "cluster"
+	EgressSelectorModeDisabled = "disabled"
+	EgressSelectorModePod      = "pod"
+	CertificateRenewDays       = 90
+	StreamServerPort           = "10010"
 )
 
 type Node struct {
