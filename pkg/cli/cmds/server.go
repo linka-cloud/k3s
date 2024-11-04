@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/urfave/cli"
+
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 const (
@@ -216,9 +217,9 @@ var ServerFlags = []cli.Flag{
 	ClusterDomain,
 	&cli.StringFlag{
 		Name:        "flannel-backend",
-		Usage:       "(networking) Backend (valid values: 'none', 'vxlan', 'host-gw', 'wireguard-native'",
+		Usage:       "(networking) Backend (valid values: 'none', 'host-gw'",
 		Destination: &ServerConfig.FlannelBackend,
-		Value:       "vxlan",
+		Value:       "host-gw",
 	},
 	&cli.BoolFlag{
 		Name:        "flannel-ipv6-masq",

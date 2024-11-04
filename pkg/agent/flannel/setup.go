@@ -38,18 +38,6 @@ const (
 	"Type": "host-gw"
 }`
 
-	tailscaledBackend = `{
-	"Type": "extension",
-	"PostStartupCommand": "tailscale set --accept-routes --advertise-routes=%Routes%",
-	"ShutdownCommand": "tailscale down"
-}`
-
-	wireguardNativeBackend = `{
-	"Type": "wireguard",
-	"PersistentKeepaliveInterval": %PersistentKeepaliveInterval%,
-	"Mode": "%Mode%"
-}`
-
 	emptyIPv6Network = "::/0"
 
 	ipv4 = iota
@@ -188,49 +176,12 @@ func createFlannelConf(nodeConfig *config.Node) error {
 	}
 
 	var backendConf string
-	backendOptions := make(map[string]string)
-
-	// precheck and error out unsupported flannel backends.
-	switch nodeConfig.FlannelBackend {
-	case config.FlannelBackendHostGW:
-	case config.FlannelBackendTailscale:
-	case config.FlannelBackendWireguardNative:
-		if goruntime.GOOS == "windows" {
-			return fmt.Errorf("unsupported flannel backend '%s' for Windows", nodeConfig.FlannelBackend)
-		}
-	}
 
 	switch nodeConfig.FlannelBackend {
-	case config.FlannelBackendVXLAN:
-		backendConf = vxlanBackend
 	case config.FlannelBackendHostGW:
 		backendConf = hostGWBackend
-	case config.FlannelBackendTailscale:
-		var routes string
-		switch netMode {
-		case ipv4:
-			routes = "$SUBNET"
-		case (ipv4 + ipv6):
-			routes = "$SUBNET,$IPV6SUBNET"
-		case ipv6:
-			routes = "$IPV6SUBNET"
-		default:
-			return fmt.Errorf("incorrect netMode for flannel tailscale backend")
-		}
-		backendConf = strings.ReplaceAll(tailscaledBackend, "%Routes%", routes)
-	case config.FlannelBackendWireguardNative:
-		mode, ok := backendOptions["Mode"]
-		if !ok {
-			mode = "separate"
-		}
-		keepalive, ok := backendOptions["PersistentKeepaliveInterval"]
-		if !ok {
-			keepalive = "25"
-		}
-		backendConf = strings.ReplaceAll(wireguardNativeBackend, "%Mode%", mode)
-		backendConf = strings.ReplaceAll(backendConf, "%PersistentKeepaliveInterval%", keepalive)
 	default:
-		return fmt.Errorf("Cannot configure unknown flannel backend '%s'", nodeConfig.FlannelBackend)
+		return fmt.Errorf("Cannot configure supported flannel backend '%s'", nodeConfig.FlannelBackend)
 	}
 	confJSON = strings.ReplaceAll(confJSON, "%backend%", backendConf)
 
