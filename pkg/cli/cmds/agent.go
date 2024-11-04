@@ -36,8 +36,6 @@ type Agent struct {
 	FlannelIface             string
 	FlannelConf              string
 	FlannelCniConfFile       string
-	VPNAuth                  string
-	VPNAuthFile              string
 	Debug                    bool
 	EnablePProf              bool
 	Rootless                 bool
@@ -175,18 +173,6 @@ var (
 		Usage:       "(agent/networking) Override default flannel cni config file",
 		Destination: &AgentConfig.FlannelCniConfFile,
 	}
-	VPNAuth = &cli.StringFlag{
-		Name:        "vpn-auth",
-		Usage:       "(agent/networking) (experimental) Credentials for the VPN provider. It must include the provider name and join key in the format name=<vpn-provider>,joinKey=<key>[,controlServerURL=<url>][,extraArgs=<args>]",
-		EnvVar:      version.ProgramUpper + "_VPN_AUTH",
-		Destination: &AgentConfig.VPNAuth,
-	}
-	VPNAuthFile = &cli.StringFlag{
-		Name:        "vpn-auth-file",
-		Usage:       "(agent/networking) (experimental) File containing credentials for the VPN provider. It must include the provider name and join key in the format name=<vpn-provider>,joinKey=<key>[,controlServerURL=<url>][,extraArgs=<args>]",
-		EnvVar:      version.ProgramUpper + "_VPN_AUTH_FILE",
-		Destination: &AgentConfig.VPNAuthFile,
-	}
 	ResolvConfFlag = &cli.StringFlag{
 		Name:        "resolv-conf",
 		Usage:       "(agent/networking) Kubelet resolv.conf file",
@@ -319,8 +305,6 @@ func NewAgentCommand(action func(ctx *cli.Context) error) cli.Command {
 			},
 			PreferBundledBin,
 			// Deprecated/hidden below
-			VPNAuth,
-			VPNAuthFile,
 			DisableAgentLBFlag,
 		},
 	}

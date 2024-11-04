@@ -545,8 +545,6 @@ var ServerFlags = []cli.Flag{
 	FlannelIfaceFlag,
 	FlannelConfFlag,
 	FlannelCniConfFileFlag,
-	VPNAuth,
-	VPNAuthFile,
 	ExtraKubeletArgs,
 	ExtraKubeProxyArgs,
 	ProtectKernelDefaultsFlag,
