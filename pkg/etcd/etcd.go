@@ -35,6 +35,7 @@ import (
 	"github.com/k3s-io/k3s/pkg/version"
 	kine "github.com/k3s-io/kine/pkg/app"
 	"github.com/k3s-io/kine/pkg/client"
+	_ "github.com/k3s-io/kine/pkg/drivers/http"
 	"github.com/k3s-io/kine/pkg/endpoint"
 	"github.com/otiai10/copy"
 	pkgerrors "github.com/pkg/errors"
