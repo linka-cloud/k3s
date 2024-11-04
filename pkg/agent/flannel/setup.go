@@ -13,7 +13,6 @@ import (
 	agentutil "github.com/k3s-io/k3s/pkg/agent/util"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/signals"
-	"github.com/k3s-io/k3s/pkg/vpn"
 	"github.com/k3s-io/k3s/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -40,17 +39,6 @@ const (
 
 	hostGWBackend = `{
 	"Type": "host-gw"
-}`
-
-	tailscaledBackend = `{
-	"Type": "extension",
-	"PostStartupCommand": "tailscale set --accept-routes --advertise-routes=%Routes%",
-	"ShutdownCommand": "tailscale down"
-}`
-
-	wireguardNativeBackend = `{
-	"Type": "wireguard",
-	"PersistentKeepaliveInterval": 25
 }`
 
 	emptyIPv6Network = "::/0"
@@ -218,41 +206,9 @@ func createFlannelConf(nodeConfig *config.Node) error {
 
 	var backendConf string
 
-	// precheck and error out unsupported flannel backends.
 	switch nodeConfig.Flannel.Backend {
-	case BackendHostGW:
-	case BackendTailscale:
-	case BackendWireguardNative:
-		if goruntime.GOOS == "windows" {
-			return fmt.Errorf("unsupported flannel backend '%s' for Windows", nodeConfig.Flannel.Backend)
-		}
-	}
-
-	switch nodeConfig.Flannel.Backend {
-	case BackendVXLAN:
-		backendConf = vxlanBackend
 	case BackendHostGW:
 		backendConf = hostGWBackend
-	case BackendTailscale:
-		var routes []string
-		if nm.IPv4Enabled() {
-			routes = append(routes, "$SUBNET")
-		}
-		if nm.IPv6Enabled() {
-			routes = append(routes, "$IPV6SUBNET")
-		}
-		if len(routes) == 0 {
-			return fmt.Errorf("incorrect netMode for flannel tailscale backend")
-		}
-		advertisedRoutes, err := vpn.GetAdvertisedRoutes()
-		if err == nil && advertisedRoutes != nil {
-			for _, advertisedRoute := range advertisedRoutes {
-				routes = append(routes, advertisedRoute.String())
-			}
-		}
-		backendConf = strings.ReplaceAll(tailscaledBackend, "%Routes%", strings.Join(routes, ","))
-	case BackendWireguardNative:
-		backendConf = wireguardNativeBackend
 	default:
 		return fmt.Errorf("Cannot configure unknown flannel backend '%s'", nodeConfig.Flannel.Backend)
 	}
