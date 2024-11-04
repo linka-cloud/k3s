@@ -32,7 +32,6 @@ const (
 )
 
 type Node struct {
-	Docker                   bool
 	ContainerRuntimeEndpoint string
 	ImageServiceEndpoint     string
 	SELinux                  bool
@@ -41,7 +40,6 @@ type Node struct {
 	EmbeddedRegistry         bool
 	EgressSelectorMode       string
 	Containerd               Containerd
-	CRIDockerd               CRIDockerd
 	Flannel                  Flannel
 	Images                   string
 	AgentConfig              Agent
@@ -85,12 +83,6 @@ type Containerd struct {
 	SELinux        bool
 	Debug          bool
 	ConfigVersion  int
-}
-
-type CRIDockerd struct {
-	Address string
-	Root    string
-	Debug   bool
 }
 
 type Flannel struct {
