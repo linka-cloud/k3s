@@ -26,8 +26,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/daemons/control/deps"
 	"github.com/k3s-io/k3s/pkg/daemons/executor"
-	"github.com/k3s-io/k3s/pkg/etcd/s3"
-	"github.com/k3s-io/k3s/pkg/etcd/snapshot"
 	embedded "github.com/k3s-io/k3s/pkg/executor/embed/etcd"
 	"github.com/k3s-io/k3s/pkg/server/auth"
 	"github.com/k3s-io/k3s/pkg/signals"
@@ -41,8 +39,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	certutil "github.com/rancher/dynamiclistener/cert"
 	controllerv1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
-	"github.com/rancher/wrangler/v3/pkg/start"
-	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -50,7 +46,6 @@ import (
 	"go.etcd.io/etcd/client/pkg/v3/logutil"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/credentials"
-	snapshotv3 "go.etcd.io/etcd/etcdutl/v3/snapshot"
 	errorsv3 "go.etcd.io/etcd/server/v3/etcdserver/errors"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -68,10 +63,6 @@ const (
 	manageTickerTime     = time.Second * 15
 	learnerMaxStallTime  = time.Minute * 5
 	memberRemovalTimeout = time.Minute * 1
-
-	// snapshotJitterMax defines the maximum time skew on cron-triggered snapshots. The actual jitter
-	// will be a random Duration somewhere between 0 and snapshotJitterMax.
-	snapshotJitterMax = time.Second * 5
 
 	// defaultDialTimeout is intentionally short so that connections timeout within the testTimeout defined above
 	defaultDialTimeout = 2 * time.Second
@@ -116,9 +107,6 @@ type ETCD struct {
 	config     *config.Control
 	name       string
 	address    string
-	cron       *cron.Cron
-	s3         *s3.Controller
-	snapshotMu *sync.Mutex
 }
 
 type learnerProgress struct {
@@ -174,10 +162,7 @@ func errMemberListFailed() error { return &memberListError{} }
 // NewETCD creates a new value of type
 // ETCD with initialized cron and snapshot mutex values.
 func NewETCD() *ETCD {
-	return &ETCD{
-		cron:       cron.New(cron.WithLogger(cronLogger)),
-		snapshotMu: &sync.Mutex{},
-	}
+	return &ETCD{}
 }
 
 // EndpointName returns the name of the endpoint.
@@ -414,42 +399,6 @@ func (e *ETCD) Reset(ctx context.Context, wg *sync.WaitGroup, rebootstrap func()
 		return err
 	}
 
-	// If asked to restore from a snapshot, do so
-	if e.config.ClusterResetRestorePath != "" {
-		if e.config.EtcdS3 != nil {
-			logrus.Infof("Retrieving etcd snapshot %s from S3", e.config.ClusterResetRestorePath)
-			s3client, err := e.getS3Client(ctx)
-			if err != nil {
-				if errors.Is(err, s3.ErrNoConfigSecret) {
-					return errors.New("cannot use S3 config secret when restoring snapshot; configuration must be set in CLI or config file")
-				} else {
-					return pkgerrors.WithMessage(err, "failed to initialize S3 client")
-				}
-			}
-			dir, err := snapshotDir(e.config, true)
-			if err != nil {
-				return pkgerrors.WithMessage(err, "failed to get the snapshot dir")
-			}
-			path, err := s3client.Download(ctx, e.config.ClusterResetRestorePath, dir)
-			if err != nil {
-				return pkgerrors.WithMessage(err, "failed to download snapshot from S3")
-			}
-			e.config.ClusterResetRestorePath = path
-			logrus.Infof("S3 download complete for %s", e.config.ClusterResetRestorePath)
-		}
-
-		info, err := os.Stat(e.config.ClusterResetRestorePath)
-		if os.IsNotExist(err) {
-			return fmt.Errorf("etcd: snapshot path does not exist: %s", e.config.ClusterResetRestorePath)
-		}
-		if info.IsDir() {
-			return fmt.Errorf("etcd: snapshot path must be a file, not a directory: %s", e.config.ClusterResetRestorePath)
-		}
-		if err := e.Restore(ctx); err != nil {
-			return err
-		}
-	}
-
 	if err := e.setName(true); err != nil {
 		return err
 	}
@@ -472,13 +421,7 @@ func (e *ETCD) Start(ctx context.Context, wg *sync.WaitGroup, clientAccessInfo *
 		return err
 	}
 
-	if !e.config.EtcdDisableSnapshots {
-		e.setSnapshotFunction(ctx)
-		e.cron.Start()
-	}
-
 	go e.manageLearners(ctx)
-	go e.getS3Client(ctx)
 
 	if isInitialized {
 		// check etcd dir permission
@@ -698,13 +641,6 @@ func (e *ETCD) Register(handler http.Handler) (http.Handler, error) {
 
 			registerEndpointsHandlers(ctx, e)
 			registerMemberHandlers(ctx, e)
-			registerSnapshotHandlers(ctx, e)
-
-			// Re-run informer factory startup after core and leader-elected controllers have started.
-			// Additional caches may need to start for the newly added OnChange/OnRemove callbacks.
-			if err := start.All(ctx, 5, e.config.Runtime.K3s, e.config.Runtime.Core); err != nil {
-				panic(pkgerrors.WithMessage(err, "failed to start wrangler controllers"))
-			}
 		}
 	}
 
@@ -756,10 +692,6 @@ func (e *ETCD) handler(next http.Handler) http.Handler {
 	ir := r.Path("/db/info").Subrouter()
 	ir.Use(auth.IsLocalOrHasRole(e.config, version.Program+":server"))
 	ir.Handle("", e.infoHandler())
-
-	sr := r.Path("/db/snapshot").Subrouter()
-	sr.Use(auth.HasRole(e.config, version.Program+":server"))
-	sr.Handle("", e.snapshotHandler())
 
 	return r
 }
@@ -1599,53 +1531,6 @@ func ClientURLs(ctx context.Context, clientAccessInfo *clientaccess.Info, selfIP
 		}
 	}
 	return clientURLs, memberList, nil
-}
-
-// Restore performs a restore of the ETCD datastore from
-// the given snapshot path. This operation exists upon
-// completion.
-func (e *ETCD) Restore(ctx context.Context) error {
-	// check the old etcd data dir
-	oldDataDir := dbDir(e.config) + "-old-" + strconv.Itoa(int(time.Now().Unix()))
-	if e.config.ClusterResetRestorePath == "" {
-		return errors.New("no etcd restore path was specified")
-	}
-	// make sure snapshot exists before restoration
-	if _, err := os.Stat(e.config.ClusterResetRestorePath); err != nil {
-		return err
-	}
-
-	var restorePath string
-	if strings.HasSuffix(e.config.ClusterResetRestorePath, snapshot.CompressedExtension) {
-		dir, err := snapshotDir(e.config, true)
-		if err != nil {
-			return pkgerrors.WithMessage(err, "failed to get the snapshot dir")
-		}
-
-		decompressSnapshot, err := e.decompressSnapshot(dir, e.config.ClusterResetRestorePath)
-		if err != nil {
-			return err
-		}
-
-		restorePath = decompressSnapshot
-	} else {
-		restorePath = e.config.ClusterResetRestorePath
-	}
-
-	// move the data directory to a temp path
-	if err := os.Rename(dbDir(e.config), oldDataDir); err != nil {
-		return err
-	}
-
-	logrus.Infof("Pre-restore etcd database moved to %s", oldDataDir)
-	return snapshotv3.NewV3(e.client.GetLogger()).Restore(snapshotv3.RestoreConfig{
-		SnapshotPath:   restorePath,
-		Name:           e.name,
-		OutputDataDir:  dbDir(e.config),
-		OutputWALDir:   walDir(e.config),
-		PeerURLs:       []string{e.peerURL()},
-		InitialCluster: e.name + "=" + e.peerURL(),
-	})
 }
 
 // backupDirWithRetention will move the dir to a backup dir
