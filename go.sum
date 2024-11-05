@@ -669,8 +669,6 @@ github.com/k3s-io/etcd/pkg/v3 v3.6.5-k3s1 h1:NOF2ounZfouZMXJfxAXoGv7Jj49nJJRqZDp
 github.com/k3s-io/etcd/pkg/v3 v3.6.5-k3s1/go.mod h1:uqrXrzmMIJDEy5j00bCqhVLzR5jEJIwDp5wTlLwPGOU=
 github.com/k3s-io/etcd/server/v3 v3.6.5-k3s1 h1:7nk12snclYRqXEfzo36KS+qtI+/2t85JQUvQ8akJmOw=
 github.com/k3s-io/etcd/server/v3 v3.6.5-k3s1/go.mod h1:PLuhyVXz8WWRhzXDsl3A3zv/+aK9e4A9lpQkqawIaH0=
-github.com/k3s-io/helm-controller v0.16.16 h1:ysiQEaXdk67MF63+CGbIf2H6Xz7J/Ly0YbwXp8XivaI=
-github.com/k3s-io/helm-controller v0.16.16/go.mod h1:jmrgGttLQbh2yB1kcf9XFAigNW6U8oWCswCSuEjkxXU=
 github.com/k3s-io/klog/v2 v2.120.1-k3s1 h1:7twAHPFpZA21KdMnMNnj68STQMPldAxF2Zsaol57dxw=
 github.com/k3s-io/klog/v2 v2.120.1-k3s1/go.mod h1:3Jpz1GvMt720eyJH1ckRHK1EDfpxISzJ7I9OYgaDtPE=
 github.com/k3s-io/kube-router/v2 v2.6.1-k3s3 h1:5fnTCJTe59mJC6sPMS1CGmLjG7oGNLgHRXhay2/SFm0=
