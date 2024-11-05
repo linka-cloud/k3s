@@ -19,6 +19,7 @@ import (
 	apiext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 )
@@ -34,6 +35,8 @@ type Context struct {
 	Event record.EventRecorder
 	K8s   kubernetes.Interface
 	Ext   apiext.Interface
+
+	Config *rest.Config
 }
 
 func (c *Context) Start(ctx context.Context) error {
@@ -72,6 +75,8 @@ func NewContext(ctx context.Context, config *Config) (*Context, error) {
 		Event: util.BuildControllerEventRecorder(k8s, version.Program+"-supervisor", metav1.NamespaceAll),
 		K8s:   k8s,
 		Ext:   ext,
+
+		Config: restConfig,
 	}
 
 	if err := c.registerCRDs(ctx); err != nil {
