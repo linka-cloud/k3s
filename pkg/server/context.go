@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/wrangler/v3/pkg/start"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 
@@ -18,12 +19,13 @@ import (
 )
 
 type Context struct {
-	Batch *batch.Factory
-	Apps  *apps.Factory
-	Auth  *rbac.Factory
-	Core  *core.Factory
-	K8s   kubernetes.Interface
-	Event record.EventRecorder
+	Batch  *batch.Factory
+	Apps   *apps.Factory
+	Auth   *rbac.Factory
+	Core   *core.Factory
+	K8s    kubernetes.Interface
+	Event  record.EventRecorder
+	Config *rest.Config
 }
 
 func (c *Context) Start(ctx context.Context) error {
@@ -52,11 +54,12 @@ func NewContext(ctx context.Context, config *Config, forServer bool) (*Context, 
 	}
 
 	return &Context{
-		K8s:   k8s,
-		Auth:  rbac.NewFactoryFromConfigOrDie(restConfig),
-		Apps:  apps.NewFactoryFromConfigOrDie(restConfig),
-		Batch: batch.NewFactoryFromConfigOrDie(restConfig),
-		Core:  core.NewFactoryFromConfigOrDie(restConfig),
-		Event: recorder,
+		K8s:    k8s,
+		Auth:   rbac.NewFactoryFromConfigOrDie(restConfig),
+		Apps:   apps.NewFactoryFromConfigOrDie(restConfig),
+		Batch:  batch.NewFactoryFromConfigOrDie(restConfig),
+		Core:   core.NewFactoryFromConfigOrDie(restConfig),
+		Event:  recorder,
+		Config: restConfig,
 	}, nil
 }
