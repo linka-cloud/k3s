@@ -147,7 +147,6 @@ type CriticalControlArgs struct {
 	ClusterDomain         string       `cli:"cluster-domain"`
 	ClusterIPRange        *net.IPNet   `cli:"cluster-cidr"`
 	DisableCCM            bool         `cli:"disable-cloud-controller"`
-	DisableHelmController bool         `cli:"disable-helm-controller"`
 	DisableNPC            bool         `cli:"disable-network-policy"`
 	DisableServiceLB      bool         `cli:"disable-service-lb"`
 	EncryptSecrets        bool         `cli:"secrets-encryption"`
@@ -178,7 +177,6 @@ type Control struct {
 	KubeConfigOutput         string
 	KubeConfigMode           string
 	KubeConfigGroup          string
-	HelmJobImage             string
 	DataDir                  string
 	KineTLS                  bool
 	Datastore                endpoint.Config `json:"-"`

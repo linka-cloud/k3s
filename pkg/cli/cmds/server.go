@@ -40,7 +40,6 @@ type Server struct {
 	KubeConfigOutput         string
 	KubeConfigMode           string
 	KubeConfigGroup          string
-	HelmJobImage             string
 	TLSSan                   cli.StringSlice
 	TLSSanSecurity           bool
 	ExtraAPIArgs             cli.StringSlice
@@ -65,7 +64,6 @@ type Server struct {
 	DefaultLocalStoragePath  string
 	DisableCCM               bool
 	DisableNPC               bool
-	DisableHelmController    bool
 	DisableKubeProxy         bool
 	DisableAPIServer         bool
 	DisableControllerManager bool
@@ -260,11 +258,6 @@ var ServerFlags = []cli.Flag{
 		Destination: &ServerConfig.KubeConfigGroup,
 		EnvVars:     []string{version.ProgramUpper + "_KUBECONFIG_GROUP"},
 	},
-	&cli.StringFlag{
-		Name:        "helm-job-image",
-		Usage:       "(helm) Default image to use for helm jobs",
-		Destination: &ServerConfig.HelmJobImage,
-	},
 	ServerToken,
 	&cli.StringFlag{
 		Name:        "token-file",
@@ -380,11 +373,6 @@ var ServerFlags = []cli.Flag{
 		Name:        "disable-network-policy",
 		Usage:       "(components) Disable " + version.Program + " default network policy controller",
 		Destination: &ServerConfig.DisableNPC,
-	},
-	&cli.BoolFlag{
-		Name:        "disable-helm-controller",
-		Usage:       "(components) Disable Helm controller",
-		Destination: &ServerConfig.DisableHelmController,
 	},
 	&cli.BoolFlag{
 		Name:        "disable-apiserver",
