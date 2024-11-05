@@ -43,9 +43,6 @@ import (
 	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
-
-	// registering k3s cloud provider
-	_ "github.com/k3s-io/k3s/pkg/cloudprovider"
 )
 
 func init() {
@@ -161,14 +158,6 @@ func (e *Embedded) Scheduler(ctx context.Context, apiReady <-chan struct{}, args
 		// wait for Bootstrap to set nodeConfig
 		for e.nodeConfig == nil {
 			runtime.Gosched()
-		}
-		// If we're running the embedded cloud controller, wait for it to untaint at least one
-		// node (usually, the local node) before starting the scheduler to ensure that it
-		// finds a node that is ready to run pods during its initial scheduling loop.
-		if !e.nodeConfig.AgentConfig.DisableCCM {
-			if err := waitForUntaintedNode(ctx, e.nodeConfig.AgentConfig.KubeConfigKubelet); err != nil {
-				logrus.Fatalf("failed to wait for untained node: %v", err)
-			}
 		}
 		defer func() {
 			if err := recover(); err != nil {

@@ -9,16 +9,9 @@ import (
 	"github.com/k3s-io/k3s/pkg/version"
 )
 
-const (
-	defaultSnapshotRentention    = 5
-	defaultSnapshotIntervalHours = 12
-)
-
 type StartupHookArgs struct {
 	APIServerReady       <-chan struct{}
 	KubeConfigSupervisor string
-	Skips                map[string]bool
-	Disables             map[string]bool
 }
 
 type StartupHook func(context.Context, *sync.WaitGroup, StartupHookArgs) error
@@ -68,7 +61,6 @@ type Server struct {
 	FlannelExternalIP        bool
 	EgressSelectorMode       string
 	DefaultLocalStoragePath  string
-	DisableCCM               bool
 	DisableNPC               bool
 	DisableKubeProxy         bool
 	DisableAPIServer         bool
@@ -329,19 +321,10 @@ var ServerFlags = []cli.Flag{
 		Usage:       "(storage) Default local storage path for local provisioner storage class",
 		Destination: &ServerConfig.DefaultLocalStoragePath,
 	},
-	&cli.StringSliceFlag{
-		Name:  "disable",
-		Usage: "(components) Do not deploy packaged components and delete any deployed components (valid items: " + DisableItems + ")",
-	},
 	&cli.BoolFlag{
 		Name:        "disable-scheduler",
 		Usage:       "(components) Disable Kubernetes default scheduler",
 		Destination: &ServerConfig.DisableScheduler,
-	},
-	&cli.BoolFlag{
-		Name:        "disable-cloud-controller",
-		Usage:       "(components) Disable " + version.Program + " default cloud controller manager",
-		Destination: &ServerConfig.DisableCCM,
 	},
 	&cli.BoolFlag{
 		Name:        "disable-kube-proxy",

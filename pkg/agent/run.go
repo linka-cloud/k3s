@@ -42,7 +42,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/cgroups"
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/clientaccess"
-	cp "github.com/k3s-io/k3s/pkg/cloudprovider"
 	"github.com/k3s-io/k3s/pkg/daemons/agent"
 	daemonconfig "github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/daemons/executor"
@@ -375,17 +374,6 @@ func configureNode(ctx context.Context, nodeConfig *daemonconfig.Node, nodes typ
 			updateNode = true
 		}
 
-		if !agentConfig.DisableCCM {
-			if annotations, changed := updateAddressAnnotations(nodeConfig, node.Annotations); changed {
-				node.Annotations = annotations
-				updateNode = true
-			}
-			if labels, changed := updateLegacyAddressLabels(agentConfig, node.Labels); changed {
-				node.Labels = labels
-				updateNode = true
-			}
-		}
-
 		// inject node config
 		if changed, err := nodeconfig.SetNodeConfigAnnotations(nodeConfig, node); err != nil {
 			return false, err
@@ -433,61 +421,6 @@ func updateMutableLabels(agentConfig *daemonconfig.Agent, nodeLabels map[string]
 	}
 	result = labels.Merge(nodeLabels, result)
 	return result, !equality.Semantic.DeepEqual(nodeLabels, result)
-}
-
-func updateLegacyAddressLabels(agentConfig *daemonconfig.Agent, nodeLabels map[string]string) (map[string]string, bool) {
-	ls := labels.Set(nodeLabels)
-	if ls.Has(cp.InternalIPKey) || ls.Has(cp.HostnameKey) {
-		result := map[string]string{
-			cp.InternalIPKey: agentConfig.NodeIP,
-			cp.HostnameKey:   getHostname(agentConfig),
-		}
-
-		if agentConfig.NodeExternalIP != "" {
-			result[cp.ExternalIPKey] = agentConfig.NodeExternalIP
-		}
-
-		result = labels.Merge(nodeLabels, result)
-		return result, !equality.Semantic.DeepEqual(nodeLabels, result)
-	}
-	return nil, false
-}
-
-// updateAddressAnnotations updates the node annotations with important information about IP addresses of the node
-func updateAddressAnnotations(nodeConfig *daemonconfig.Node, nodeAnnotations map[string]string) (map[string]string, bool) {
-	agentConfig := &nodeConfig.AgentConfig
-	result := map[string]string{
-		cp.InternalIPKey: util.JoinIPs(agentConfig.NodeIPs),
-		cp.HostnameKey:   getHostname(agentConfig),
-	}
-
-	if agentConfig.NodeExternalIP != "" {
-		result[cp.ExternalIPKey] = util.JoinIPs(agentConfig.NodeExternalIPs)
-		if nodeConfig.FlannelExternalIP {
-			for _, ipAddress := range agentConfig.NodeExternalIPs {
-				if utilsnet.IsIPv4(ipAddress) {
-					result[flannel.FlannelExternalIPv4Annotation] = ipAddress.String()
-				}
-				if utilsnet.IsIPv6(ipAddress) {
-					result[flannel.FlannelExternalIPv6Annotation] = ipAddress.String()
-				}
-			}
-		}
-	}
-
-	if len(agentConfig.NodeInternalDNSs) > 0 {
-		result[cp.InternalDNSKey] = strings.Join(agentConfig.NodeInternalDNSs, ",")
-	} else {
-		delete(result, cp.InternalDNSKey)
-	}
-	if len(agentConfig.NodeExternalDNSs) > 0 {
-		result[cp.ExternalDNSKey] = strings.Join(agentConfig.NodeExternalDNSs, ",")
-	} else {
-		delete(result, cp.ExternalDNSKey)
-	}
-
-	result = labels.Merge(nodeAnnotations, result)
-	return result, !equality.Semantic.DeepEqual(nodeAnnotations, result)
 }
 
 // setupTunnelAndRunAgent should start the setup tunnel before starting kubelet and kubeproxy

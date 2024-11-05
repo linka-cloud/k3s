@@ -10,13 +10,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/k3s-io/k3s/pkg/cgroups"
-	"github.com/k3s-io/k3s/pkg/daemons/config"
-	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 	utilsnet "k8s.io/utils/net"
+
+	"github.com/k3s-io/k3s/pkg/cgroups"
+	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/util"
 )
 
 const socketPrefix = "unix://"
@@ -131,22 +132,15 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	if cfg.NodeName != "" {
 		argsMap["hostname-override"] = cfg.NodeName
 	}
-	// If the embedded CCM is disabled, don't assume that dual-stack node IPs are safe.
+	// Don't assume that dual-stack node IPs are safe.
 	// When using an external CCM, the user wants dual-stack node IPs, they will need to set the node-ip kubelet arg directly.
 	// This should be fine since most cloud providers have their own way of finding node IPs that doesn't depend on the kubelet
 	// setting them.
-	if cfg.DisableCCM {
-		dualStack, err := utilsnet.IsDualStackIPs(cfg.NodeIPs)
-		if err == nil && !dualStack {
-			argsMap["node-ip"] = cfg.NodeIP
-		}
-	} else {
-		// Cluster is using the embedded CCM, we know that the feature-gate will be enabled there as well.
-		argsMap["feature-gates"] = util.AddFeatureGate(argsMap["feature-gates"], "CloudDualStackNodeIPs=true")
-		if nodeIPs := util.JoinIPs(cfg.NodeIPs); nodeIPs != "" {
-			argsMap["node-ip"] = util.JoinIPs(cfg.NodeIPs)
-		}
+	dualStack, err := utilsnet.IsDualStackIPs(cfg.NodeIPs)
+	if err == nil && !dualStack {
+		argsMap["node-ip"] = cfg.NodeIP
 	}
+
 	kubeletRoot, runtimeRoot, controllers := cgroups.CheckCgroups()
 	if !controllers["cpu"] {
 		logrus.Warn("Disabling CPU quotas due to missing cpu controller or cpu.cfs_period_us")
@@ -167,10 +161,6 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		argsMap["register-with-taints"] = strings.Join(cfg.NodeTaints, ",")
 	}
 
-	if !cfg.DisableCCM {
-		argsMap["cloud-provider"] = "external"
-	}
-
 	if ImageCredProvAvailable(cfg) {
 		logrus.Infof("Kubelet image credential provider bin dir and configuration file found.")
 		argsMap["image-credential-provider-bin-dir"] = cfg.ImageCredProvBinDir
@@ -188,10 +178,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	if cfg.ProtectKernelDefaults {
 		argsMap["protect-kernel-defaults"] = "true"
 	}
-
-	if !cfg.DisableServiceLB {
-		argsMap["allowed-unsafe-sysctls"] = "net.ipv4.ip_forward,net.ipv6.conf.all.forwarding"
-	}
+	
 	if cfg.VLevel != 0 {
 		argsMap["v"] = strconv.Itoa(cfg.VLevel)
 	}

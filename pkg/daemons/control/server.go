@@ -9,6 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	logsapi "k8s.io/component-base/logs/api/v1"
+	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
+	"k8s.io/kubernetes/pkg/registry/core/node"
+
 	"github.com/k3s-io/k3s/pkg/authenticator"
 	"github.com/k3s-io/k3s/pkg/cluster"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
@@ -16,13 +22,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/daemons/executor"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	authorizationv1 "k8s.io/api/authorization/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logsapi "k8s.io/component-base/logs/api/v1"
-	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
-	"k8s.io/kubernetes/pkg/registry/core/node"
 
 	// for client metric registration
 	_ "k8s.io/component-base/metrics/prometheus/restclient"
@@ -79,12 +78,6 @@ func Server(ctx context.Context, cfg *config.Control) error {
 		}
 	}
 
-	if !cfg.DisableCCM || !cfg.DisableServiceLB {
-		if err := cloudControllerManager(ctx, cfg); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -115,10 +108,6 @@ func controllerManager(ctx context.Context, cfg *config.Control) error {
 	}
 	if cfg.NoLeaderElect {
 		argsMap["leader-elect"] = "false"
-	}
-	if !cfg.DisableCCM {
-		argsMap["configure-cloud-routes"] = "false"
-		argsMap["controllers"] = argsMap["controllers"] + ",-service,-route,-cloud-node-lifecycle"
 	}
 
 	if cfg.VLevel != 0 {
@@ -305,94 +294,6 @@ func setupStorageBackend(argsMap map[string]string, cfg *config.Control) {
 	if len(cfg.Datastore.BackendTLSConfig.KeyFile) > 0 {
 		argsMap["etcd-keyfile"] = cfg.Datastore.BackendTLSConfig.KeyFile
 	}
-}
-
-func cloudControllerManager(ctx context.Context, cfg *config.Control) error {
-	runtime := cfg.Runtime
-	argsMap := map[string]string{
-		"profiling":                    "false",
-		"allocate-node-cidrs":          "true",
-		"leader-elect-resource-name":   version.Program + "-cloud-controller-manager",
-		"cloud-provider":               version.Program,
-		"cloud-config":                 runtime.CloudControllerConfig,
-		"cluster-cidr":                 util.JoinIPNets(cfg.ClusterIPRanges),
-		"configure-cloud-routes":       "false",
-		"controllers":                  "*,-route",
-		"kubeconfig":                   runtime.KubeConfigCloudController,
-		"authorization-kubeconfig":     runtime.KubeConfigCloudController,
-		"authentication-kubeconfig":    runtime.KubeConfigCloudController,
-		"node-status-update-frequency": "1m0s",
-		"bind-address":                 cfg.Loopback(false),
-		"feature-gates":                "CloudDualStackNodeIPs=true",
-	}
-	if cfg.NoLeaderElect {
-		argsMap["leader-elect"] = "false"
-	}
-	if cfg.DisableCCM {
-		argsMap["controllers"] = argsMap["controllers"] + ",-cloud-node,-cloud-node-lifecycle"
-		argsMap["secure-port"] = "0"
-	}
-	if cfg.DisableServiceLB {
-		argsMap["controllers"] = argsMap["controllers"] + ",-service"
-	}
-	if cfg.VLevel != 0 {
-		argsMap["v"] = strconv.Itoa(cfg.VLevel)
-	}
-	if cfg.VModule != "" {
-		argsMap["vmodule"] = cfg.VModule
-	}
-
-	args := config.GetArgs(argsMap, cfg.ExtraCloudControllerArgs)
-
-	logrus.Infof("Running cloud-controller-manager %s", config.ArgString(args))
-
-	ccmRBACReady := make(chan struct{})
-
-	go func() {
-		defer close(ccmRBACReady)
-
-	apiReadyLoop:
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-cfg.Runtime.APIServerReady:
-				break apiReadyLoop
-			case <-time.After(30 * time.Second):
-				logrus.Infof("Waiting for API server to become available")
-			}
-		}
-
-		logrus.Infof("Waiting for cloud-controller-manager privileges to become available")
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-promise(func() error { return checkForCloudControllerPrivileges(ctx, cfg.Runtime, 5*time.Second) }):
-				if err != nil {
-					logrus.Infof("Waiting for cloud-controller-manager privileges to become available: %v", err)
-					continue
-				}
-				return
-			}
-		}
-	}()
-
-	return executor.CloudControllerManager(ctx, ccmRBACReady, args)
-}
-
-// checkForCloudControllerPrivileges makes a SubjectAccessReview request to the apiserver
-// to validate that the embedded cloud controller manager has the required privileges,
-// and does not return until the requested access is granted.
-// If the CCM RBAC changes, the ResourceAttributes checked for by this function should
-// be modified to check for the most recently added privilege.
-func checkForCloudControllerPrivileges(ctx context.Context, runtime *config.ControlRuntime, timeout time.Duration) error {
-	return util.WaitForRBACReady(ctx, runtime.KubeConfigSupervisor, timeout, authorizationv1.ResourceAttributes{
-		Namespace: metav1.NamespaceSystem,
-		Verb:      "watch",
-		Resource:  "endpointslices",
-		Group:     "discovery.k8s.io",
-	}, version.Program+"-cloud-controller-manager")
 }
 
 func waitForAPIServerHandlers(ctx context.Context, runtime *config.ControlRuntime) {

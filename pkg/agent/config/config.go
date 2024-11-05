@@ -673,14 +673,12 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	nodeConfig.AgentConfig.NodeLabels = envInfo.Labels
 	nodeConfig.AgentConfig.ImageCredProvBinDir = envInfo.ImageCredProvBinDir
 	nodeConfig.AgentConfig.ImageCredProvConfig = envInfo.ImageCredProvConfig
-	nodeConfig.AgentConfig.DisableCCM = controlConfig.DisableCCM
 	nodeConfig.AgentConfig.DisableNPC = controlConfig.DisableNPC
 	nodeConfig.AgentConfig.MinTLSVersion = controlConfig.MinTLSVersion
 	nodeConfig.AgentConfig.CipherSuites = controlConfig.CipherSuites
 	nodeConfig.AgentConfig.Rootless = envInfo.Rootless
 	nodeConfig.AgentConfig.PodManifests = filepath.Join(envInfo.DataDir, "agent", DefaultPodManifestPath)
 	nodeConfig.AgentConfig.ProtectKernelDefaults = envInfo.ProtectKernelDefaults
-	nodeConfig.AgentConfig.DisableServiceLB = envInfo.DisableServiceLB
 	nodeConfig.AgentConfig.VLevel = cmds.LogConfig.VLevel
 	nodeConfig.AgentConfig.VModule = cmds.LogConfig.VModule
 	nodeConfig.AgentConfig.LogFile = cmds.LogConfig.LogFile
