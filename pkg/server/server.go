@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	helmchart "github.com/k3s-io/helm-controller/pkg/controllers/chart"
-	helmcommon "github.com/k3s-io/helm-controller/pkg/controllers/common"
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/clientaccess"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
@@ -25,15 +23,12 @@ import (
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/pkg/errors"
-	"github.com/rancher/wrangler/v3/pkg/apply"
 	v1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/v3/pkg/leader"
 	"github.com/rancher/wrangler/v3/pkg/resolvehome"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func ResolveDataDir(dataDir string) (string, error) {
@@ -181,7 +176,6 @@ func runOrDie(ctx context.Context, name string, cb leader.Callback) {
 
 // coreControllers starts the following controllers, if they are enabled:
 // * Node controller (manages nodes passwords and coredns hosts file)
-// * Helm controller
 // * Secrets encryption
 // * Rootless ports
 // These controllers should only be run on nodes with a local apiserver
@@ -194,50 +188,6 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 		return err
 	}
 
-	// apply SystemDefaultRegistry setting to Helm before starting controllers
-	if config.ControlConfig.HelmJobImage != "" {
-		helmchart.DefaultJobImage = config.ControlConfig.HelmJobImage
-	} else if config.ControlConfig.SystemDefaultRegistry != "" {
-		helmchart.DefaultJobImage = config.ControlConfig.SystemDefaultRegistry + "/" + helmchart.DefaultJobImage
-	}
-
-	if !config.ControlConfig.DisableHelmController {
-		restConfig, err := clientcmd.BuildConfigFromFlags("", config.ControlConfig.Runtime.KubeConfigSupervisor)
-		if err != nil {
-			return err
-		}
-		restConfig.UserAgent = util.GetUserAgent(helmcommon.Name)
-
-		k8s, err := clientset.NewForConfig(restConfig)
-		if err != nil {
-			return err
-		}
-
-		apply := apply.New(k8s, apply.NewClientFactory(restConfig)).WithDynamicLookup().WithSetOwnerReference(false, false)
-		helm := sc.Helm.WithAgent(restConfig.UserAgent)
-		batch := sc.Batch.WithAgent(restConfig.UserAgent)
-		auth := sc.Auth.WithAgent(restConfig.UserAgent)
-		core := sc.Core.WithAgent(restConfig.UserAgent)
-		helmchart.Register(ctx,
-			metav1.NamespaceAll,
-			helmcommon.Name,
-			"cluster-admin",
-			strconv.Itoa(config.ControlConfig.APIServerPort),
-			k8s,
-			apply,
-			util.BuildControllerEventRecorder(k8s, helmcommon.Name, metav1.NamespaceAll),
-			helm.V1().HelmChart(),
-			helm.V1().HelmChart().Cache(),
-			helm.V1().HelmChartConfig(),
-			helm.V1().HelmChartConfig().Cache(),
-			batch.V1().Job(),
-			batch.V1().Job().Cache(),
-			auth.V1().ClusterRoleBinding(),
-			core.V1().ServiceAccount(),
-			core.V1().ConfigMap(),
-			core.V1().Secret())
-	}
-
 	if config.ControlConfig.Rootless {
 		return rootlessports.Register(ctx,
 			sc.Core.Core().V1().Service(),
@@ -246,26 +196,6 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 	}
 
 	return nil
-}
-
-// registryTemplate behaves like the system_default_registry template in Rancher helm charts,
-// and returns the registry value with a trailing forward slash if the registry string is not empty.
-// If it is empty, it is passed through as a no-op.
-func registryTemplate(registry string) string {
-	if registry == "" {
-		return registry
-	}
-	return registry + "/"
-}
-
-// addressTypesTemplate prioritizes ExternalIP addresses if we are in the multi-cloud env where
-// cluster traffic flows over the external IPs only
-func addrTypesPrioTemplate(flannelExternal bool) string {
-	if flannelExternal {
-		return "ExternalIP,InternalIP,Hostname"
-	}
-
-	return "InternalIP,ExternalIP,Hostname"
 }
 
 func HomeKubeConfig(write, rootless bool) (string, error) {
