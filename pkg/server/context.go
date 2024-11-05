@@ -6,8 +6,6 @@ import (
 
 	k3scrds "github.com/k3s-io/api/pkg/crds"
 	"github.com/k3s-io/api/pkg/generated/controllers/k3s.cattle.io"
-	helmcrds "github.com/k3s-io/helm-controller/pkg/crds"
-	"github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io"
 	"github.com/k3s-io/k3s/pkg/util"
 	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/rancher/wrangler/v3/pkg/crd"
@@ -27,7 +25,6 @@ import (
 
 type Context struct {
 	K3s       *k3s.Factory
-	Helm      *helm.Factory
 	Batch     *batch.Factory
 	Apps      *apps.Factory
 	Auth      *rbac.Factory
@@ -42,9 +39,6 @@ type Context struct {
 func (c *Context) Start(ctx context.Context) error {
 	starters := []start.Starter{
 		c.K3s, c.Apps, c.Auth, c.Batch, c.Core, c.Discovery,
-	}
-	if c.Helm != nil {
-		starters = append(starters, c.Helm)
 	}
 
 	return start.All(ctx, 5, starters...)
@@ -67,11 +61,6 @@ func NewContext(ctx context.Context, config *Config) (*Context, error) {
 		return nil, err
 	}
 
-	var hf *helm.Factory
-	if !config.ControlConfig.DisableHelmController {
-		hf = helm.NewFactoryFromConfigOrDie(restConfig)
-	}
-
 	c := &Context{
 		K3s:       k3s.NewFactoryFromConfigOrDie(restConfig),
 		Auth:      rbac.NewFactoryFromConfigOrDie(restConfig),
@@ -79,7 +68,6 @@ func NewContext(ctx context.Context, config *Config) (*Context, error) {
 		Batch:     batch.NewFactoryFromConfigOrDie(restConfig),
 		Core:      core.NewFactoryFromConfigOrDie(restConfig),
 		Discovery: discovery.NewFactoryFromConfigOrDie(restConfig),
-		Helm:      hf,
 
 		Event: util.BuildControllerEventRecorder(k8s, version.Program+"-supervisor", metav1.NamespaceAll),
 		K8s:   k8s,
@@ -97,9 +85,6 @@ type crdLister func() ([]*apiextv1.CustomResourceDefinition, error)
 
 func (c *Context) registerCRDs(ctx context.Context) error {
 	listers := []crdLister{k3scrds.List}
-	if c.Helm != nil {
-		listers = append(listers, helmcrds.List)
-	}
 
 	crds := []*apiextv1.CustomResourceDefinition{}
 	for _, list := range listers {

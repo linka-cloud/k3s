@@ -96,7 +96,6 @@ require (
 	github.com/erikdubbelboer/gspt v0.0.0-20190125194910-e68493906b83
 	github.com/flannel-io/flannel v0.27.4
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-logr/logr v1.4.3
 	github.com/go-test/deep v1.0.7
 	github.com/google/cadvisor v0.52.1
@@ -108,10 +107,8 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/json-iterator/go v1.1.12
 	github.com/k3s-io/api v0.1.3
-	github.com/k3s-io/helm-controller v0.16.16
 	github.com/k3s-io/kine v0.14.6
 	github.com/klauspost/compress v1.18.1
-	github.com/minio/minio-go/v7 v7.0.91
 	github.com/moby/sys/userns v0.1.0
 	github.com/mwitkow/go-http-dialer v0.0.0-20161116154839-378f744fb2b8
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -129,7 +126,6 @@ require (
 	github.com/rancher/remotedialer v0.6.0-rc.1.0.20250916111157-f160aa32568d
 	github.com/rancher/wharfie v0.7.0
 	github.com/rancher/wrangler/v3 v3.2.3
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/rootless-containers/rootlesskit v1.1.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.10
@@ -154,7 +150,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.33.6
 	k8s.io/apimachinery v0.34.1
 	k8s.io/apiserver v0.34.1
-	k8s.io/cli-runtime v0.33.6
 	k8s.io/client-go v0.34.1
 	k8s.io/cloud-provider v0.33.6
 	k8s.io/cluster-bootstrap v0.33.6
@@ -244,7 +239,6 @@ require (
 	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/stdr v1.2.3-0.20220714215716-96bad1d688c5 // indirect
 	github.com/go-openapi/jsonpointer v0.22.0 // indirect
@@ -261,7 +255,6 @@ require (
 	github.com/go-openapi/swag/stringutils v0.24.0 // indirect
 	github.com/go-openapi/swag/typeutils v0.24.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.24.0 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -290,7 +283,6 @@ require (
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/karrick/godirwalk v1.17.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/libopenstorage/openstorage v1.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
@@ -300,8 +292,6 @@ require (
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mdlayher/vsock v1.2.1 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
-	github.com/minio/crc64nvme v1.0.1 // indirect
-	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible // indirect
 	github.com/mistifyio/go-zfs/v3 v3.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -333,7 +323,7 @@ require (
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	github.com/rs/xid v1.6.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/smallstep/pkcs7 v0.1.1 // indirect
@@ -383,6 +373,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/cli-runtime v0.33.6 // indirect
 	k8s.io/controller-manager v0.25.4 // indirect
 	k8s.io/csi-translation-lib v0.0.0 // indirect
 	k8s.io/dynamic-resource-allocation v0.0.0 // indirect
