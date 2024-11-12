@@ -98,7 +98,7 @@ func Server(ctx context.Context, wg *sync.WaitGroup, cfg *config.Control) error 
 		}
 	}
 
-	if !cfg.DisableCCM || !cfg.DisableServiceLB {
+	if !cfg.DisableCCM {
 		if err := cloudControllerManager(ctx, cfg); err != nil {
 			return err
 		}
@@ -380,9 +380,6 @@ func cloudControllerManager(ctx context.Context, cfg *config.Control) error {
 	if cfg.DisableCCM {
 		argsMap["controllers"] = argsMap["controllers"] + ",-cloud-node,-cloud-node-lifecycle"
 		argsMap["secure-port"] = "0"
-	}
-	if cfg.DisableServiceLB {
-		argsMap["controllers"] = argsMap["controllers"] + ",-service"
 	}
 	if cfg.VLevel != 0 {
 		argsMap["v"] = strconv.Itoa(cfg.VLevel)
