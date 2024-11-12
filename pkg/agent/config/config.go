@@ -679,7 +679,6 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	nodeConfig.AgentConfig.Rootless = envInfo.Rootless
 	nodeConfig.AgentConfig.PodManifests = filepath.Join(envInfo.DataDir, "agent", DefaultPodManifestPath)
 	nodeConfig.AgentConfig.ProtectKernelDefaults = envInfo.ProtectKernelDefaults
-	nodeConfig.AgentConfig.DisableServiceLB = envInfo.DisableServiceLB
 	nodeConfig.AgentConfig.VLevel = cmds.LogConfig.VLevel
 	nodeConfig.AgentConfig.VModule = cmds.LogConfig.VModule
 	nodeConfig.AgentConfig.LogFile = cmds.LogConfig.LogFile

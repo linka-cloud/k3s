@@ -17,8 +17,6 @@ const (
 type StartupHookArgs struct {
 	APIServerReady       <-chan struct{}
 	KubeConfigSupervisor string
-	Skips                map[string]bool
-	Disables             map[string]bool
 }
 
 type StartupHook func(context.Context, *sync.WaitGroup, StartupHookArgs) error
@@ -86,7 +84,6 @@ type Server struct {
 	StartupHooks             []StartupHook
 	SupervisorMetrics        bool
 	EtcdExposeMetrics        bool
-	ServiceLBNamespace       string
 }
 
 var (
@@ -215,12 +212,6 @@ var ServerFlags = []cli.Flag{
 		Value:       "agent",
 	},
 	&cli.StringFlag{
-		Name:        "servicelb-namespace",
-		Usage:       "(networking) Namespace of the pods for the servicelb component",
-		Destination: &ServerConfig.ServiceLBNamespace,
-		Value:       "kube-system",
-	},
-	&cli.StringFlag{
 		Name:        "write-kubeconfig,o",
 		Usage:       "(client) Write kubeconfig for admin client to this file",
 		Destination: &ServerConfig.KubeConfigOutput,
@@ -328,10 +319,6 @@ var ServerFlags = []cli.Flag{
 		Name:        "default-local-storage-path",
 		Usage:       "(storage) Default local storage path for local provisioner storage class",
 		Destination: &ServerConfig.DefaultLocalStoragePath,
-	},
-	&cli.StringSliceFlag{
-		Name:  "disable",
-		Usage: "(components) Do not deploy packaged components and delete any deployed components (valid items: " + DisableItems + ")",
 	},
 	&cli.BoolFlag{
 		Name:        "disable-scheduler",

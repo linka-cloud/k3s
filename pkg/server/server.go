@@ -58,8 +58,6 @@ func StartServer(ctx context.Context, config *Config, cfg *cmds.Server) error {
 	shArgs := cmds.StartupHookArgs{
 		APIServerReady:       config.ControlConfig.Runtime.APIServerReady,
 		KubeConfigSupervisor: config.ControlConfig.Runtime.KubeConfigSupervisor,
-		Skips:                config.ControlConfig.Skips,
-		Disables:             config.ControlConfig.Disables,
 	}
 	for _, hook := range config.StartupHooks {
 		if err := hook(ctx, wg, shArgs); err != nil {
@@ -181,7 +179,6 @@ func runOrDie(ctx context.Context, name string, cb leader.Callback) {
 // These controllers should only be run on nodes with a local apiserver
 func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 	if err := node.Register(ctx,
-		!config.ControlConfig.Skips["coredns"],
 		sc.Core.Core().V1().Secret(),
 		sc.Core.Core().V1().ConfigMap(),
 		sc.Core.Core().V1().Node()); err != nil {
@@ -191,7 +188,6 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 	if config.ControlConfig.Rootless {
 		return rootlessports.Register(ctx,
 			sc.Core.Core().V1().Service(),
-			!config.ControlConfig.DisableServiceLB,
 			config.ControlConfig.HTTPSPort)
 	}
 

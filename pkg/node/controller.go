@@ -17,13 +17,11 @@ import (
 )
 
 func Register(ctx context.Context,
-	modCoreDNS bool,
 	secrets coreclient.SecretController,
 	configMaps coreclient.ConfigMapController,
 	nodes coreclient.NodeController,
 ) error {
 	h := &handler{
-		modCoreDNS: modCoreDNS,
 		secrets:    secrets,
 		configMaps: configMaps,
 	}
@@ -34,7 +32,6 @@ func Register(ctx context.Context,
 }
 
 type handler struct {
-	modCoreDNS bool
 	secrets    coreclient.SecretController
 	configMaps coreclient.ConfigMapController
 }
@@ -75,10 +72,8 @@ func (h *handler) updateHosts(node *core.Node, removed bool) (*core.Node, error)
 			logrus.Warn(errors.Wrap(err, "Unable to remove node password"))
 		}
 	}
-	if h.modCoreDNS {
-		if err := h.updateCoreDNSConfigMap(nodeName, hostName, nodeIPv4, nodeIPv6, removed); err != nil {
-			return nil, err
-		}
+	if err := h.updateCoreDNSConfigMap(nodeName, hostName, nodeIPv4, nodeIPv6, removed); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }

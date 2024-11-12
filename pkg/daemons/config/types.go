@@ -147,7 +147,6 @@ type Agent struct {
 	CipherSuites            []string
 	Rootless                bool
 	ProtectKernelDefaults   bool
-	DisableServiceLB        bool
 	EnableIPv4              bool
 	EnableIPv6              bool
 	VLevel                  int
@@ -166,7 +165,6 @@ type CriticalControlArgs struct {
 	ClusterIPRange     *net.IPNet   `cli:"cluster-cidr"`
 	DisableCCM         bool         `cli:"disable-cloud-controller"`
 	DisableNPC         bool         `cli:"disable-network-policy"`
-	DisableServiceLB   bool         `cli:"disable-service-lb"`
 	EncryptSecrets     bool         `cli:"secrets-encryption"`
 	FlannelBackend     string       `cli:"flannel-backend"`
 	FlannelIPv6Masq    bool         `cli:"flannel-ipv6-masq"`
@@ -197,16 +195,13 @@ type Control struct {
 	DataDir                  string
 	KineTLS                  bool
 	Datastore                endpoint.Config `json:"-"`
-	Disables                 map[string]bool
 	DisableAgent             bool
 	DisableAPIServer         bool
 	DisableControllerManager bool
 	DisableETCD              bool
 	DisableKubeProxy         bool
 	DisableScheduler         bool
-	DisableServiceLB         bool
 	Rootless                 bool
-	ServiceLBNamespace       string
 	ExtraAPIArgs             []string
 	ExtraControllerArgs      []string
 	ExtraCloudControllerArgs []string
@@ -216,7 +211,6 @@ type Control struct {
 	JoinURL                  string
 	IPSECPSK                 string
 	DefaultLocalStoragePath  string
-	Skips                    map[string]bool
 	SystemDefaultRegistry    string
 	ClusterInit              bool
 	ClusterReset             bool

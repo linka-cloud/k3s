@@ -829,15 +829,8 @@ func genEgressSelectorConfig(controlConfig *config.Control) error {
 
 func genCloudConfig(controlConfig *config.Control) error {
 	cloudConfig := cloudprovider.Config{
-		LBDefaultPriorityClassName: cloudprovider.DefaultLBPriorityClassName,
-		LBEnabled:                  !controlConfig.DisableServiceLB,
-		LBNamespace:                controlConfig.ServiceLBNamespace,
-		LBImage:                    cloudprovider.DefaultLBImage,
-		Rootless:                   controlConfig.Rootless,
-		NodeEnabled:                !controlConfig.DisableCCM,
-	}
-	if controlConfig.SystemDefaultRegistry != "" {
-		cloudConfig.LBImage = controlConfig.SystemDefaultRegistry + "/" + cloudConfig.LBImage
+		Rootless:    controlConfig.Rootless,
+		NodeEnabled: !controlConfig.DisableCCM,
 	}
 	b, err := json.Marshal(cloudConfig)
 	if err != nil {
