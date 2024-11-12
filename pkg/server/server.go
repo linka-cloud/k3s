@@ -17,7 +17,6 @@ import (
 	"github.com/k3s-io/k3s/pkg/daemons/control"
 	"github.com/k3s-io/k3s/pkg/daemons/executor"
 	"github.com/k3s-io/k3s/pkg/datadir"
-	"github.com/k3s-io/k3s/pkg/node"
 	"github.com/k3s-io/k3s/pkg/nodepassword"
 	"github.com/k3s-io/k3s/pkg/rootlessports"
 	"github.com/k3s-io/k3s/pkg/secretsencrypt"
@@ -72,8 +71,6 @@ func StartServer(ctx context.Context, wg *sync.WaitGroup, config *Config, cfg *c
 	shArgs := cmds.StartupHookArgs{
 		APIServerReady:       executor.APIServerReadyChan(),
 		KubeConfigSupervisor: config.ControlConfig.Runtime.KubeConfigSupervisor,
-		Skips:                config.ControlConfig.Skips,
-		Disables:             config.ControlConfig.Disables,
 	}
 	for _, hook := range config.StartupHooks {
 		if err := hook(ctx, config.ControlConfig.Runtime.StartupHooksWg, shArgs); err != nil {
@@ -196,25 +193,15 @@ func runOrDie(ctx context.Context, name string, cb leader.Callback) {
 }
 
 // coreControllers starts the following controllers, if they are enabled:
-// * Node controller (manages coredns node hosts file)
 // * Secrets encryption
 // * Rootless ports
 // These controllers should only be run on nodes with a local apiserver
 func coreControllers(ctx context.Context, sc *Context, config *Config) error {
-	if err := node.Register(ctx,
-		!config.ControlConfig.Skips["coredns"],
-		sc.K8s,
-		sc.Core.Core().V1().Node()); err != nil {
-		return err
-	}
-
 	if config.ControlConfig.Rootless {
 		return rootlessports.Register(ctx,
 			sc.Core.Core().V1().Service(),
-			!config.ControlConfig.DisableServiceLB,
 			config.ControlConfig.HTTPSPort)
 	}
-
 	return nil
 }
 
