@@ -5,7 +5,6 @@ package rootlessports
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/k3s-io/k3s/pkg/rootless"
@@ -14,14 +13,13 @@ import (
 	"github.com/rootless-containers/rootlesskit/pkg/port"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
 	all = "_all_"
 )
 
-func Register(ctx context.Context, serviceController coreClients.ServiceController, enabled bool, httpsPort int) error {
+func Register(ctx context.Context, serviceController coreClients.ServiceController, httpsPort int) error {
 	var (
 		err            error
 		rootlessClient client.Client
@@ -45,7 +43,6 @@ func Register(ctx context.Context, serviceController coreClients.ServiceControll
 	}
 
 	h := &handler{
-		enabled:        enabled,
 		rootlessClient: rootlessClient,
 		serviceClient:  serviceController,
 		serviceCache:   serviceController.Cache(),
@@ -59,7 +56,6 @@ func Register(ctx context.Context, serviceController coreClients.ServiceControll
 }
 
 type handler struct {
-	enabled        bool
 	rootlessClient client.Client
 	serviceClient  coreClients.ServiceController
 	serviceCache   coreClients.ServiceCache
@@ -86,9 +82,9 @@ func (h *handler) serviceChanged(key string, svc *v1.Service) (*v1.Service, erro
 		boundPorts[port.Spec.Proto][port.Spec.ParentPort] = port.ID
 	}
 
-	toBindPort, err := h.toBindPorts()
-	if err != nil {
-		return svc, err
+	toBindPort := map[string]map[int]int{
+		"tcp": {h.httpsPort: h.httpsPort},
+		"udp": {},
 	}
 
 	for proto, ports := range toBindPort {
@@ -124,49 +120,4 @@ func (h *handler) serviceChanged(key string, svc *v1.Service) (*v1.Service, erro
 	}
 
 	return svc, nil
-}
-
-func (h *handler) toBindPorts() (map[string]map[int]int, error) {
-	svcs, err := h.serviceCache.List("", labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	toBindPorts := map[string]map[int]int{
-		"tcp": {h.httpsPort: h.httpsPort},
-		"udp": {},
-	}
-
-	if !h.enabled {
-		return toBindPorts, nil
-	}
-
-	for _, svc := range svcs {
-		for _, ingress := range svc.Status.LoadBalancer.Ingress {
-			if ingress.IP == "" {
-				continue
-			}
-
-			for _, port := range svc.Spec.Ports {
-				proto := strings.ToLower(string(port.Protocol))
-				if _, ok := toBindPorts[proto]; !ok {
-					logrus.Debugf("Skipping bind for unsupported protocol: %d/%s", port.Port, proto)
-					continue
-				}
-
-				for _, toBindPort := range []int32{port.Port, port.NodePort} {
-					if toBindPort == 0 {
-						continue
-					}
-					if toBindPort <= 1024 {
-						toBindPorts[proto][10000+int(toBindPort)] = int(toBindPort)
-					} else {
-						toBindPorts[proto][int(toBindPort)] = int(toBindPort)
-					}
-				}
-			}
-		}
-	}
-
-	return toBindPorts, nil
 }

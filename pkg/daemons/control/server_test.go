@@ -40,8 +40,6 @@ func Test_UnitServer(t *testing.T) {
 					return nil, err
 				}
 
-				control.DisableCCM = true
-
 				executor := mock.NewExecutorWithEmbeddedETCD(t)
 
 				// leader-elect should NOT be disabled when using etcd
@@ -68,7 +66,6 @@ func Test_UnitServer(t *testing.T) {
 				control.DisableCCM = true
 				control.DisableControllerManager = true
 				control.DisableScheduler = true
-				control.DisableServiceLB = true
 
 				mock.NewExecutorWithEmbeddedETCD(t)
 
@@ -84,8 +81,6 @@ func Test_UnitServer(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-
-				control.DisableCCM = true
 
 				executor := mock.NewExecutorWithEmbeddedETCD(t)
 
@@ -108,8 +103,6 @@ func Test_UnitServer(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-
-				control.DisableCCM = true
 
 				executor := mock.NewExecutorWithEmbeddedETCD(t)
 
