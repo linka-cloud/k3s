@@ -53,7 +53,7 @@ import (
 	utilsptr "k8s.io/utils/ptr"
 )
 
-func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
+func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy, standalone bool) error {
 	nodeConfig, err := config.Get(ctx, cfg, proxy)
 	if err != nil {
 		return errors.Wrap(err, "failed to retrieve agent configuration")
@@ -124,7 +124,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 		return err
 	}
 
-	if !nodeConfig.NoFlannel {
+	if !standalone && !nodeConfig.NoFlannel {
 		if (nodeConfig.FlannelExternalIP) && (len(nodeConfig.AgentConfig.NodeExternalIPs) == 0) {
 			logrus.Warnf("Server has flannel-external-ip flag set but this node does not set node-external-ip. Flannel will use internal address when connecting to this node.")
 		}
@@ -165,11 +165,13 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 		return err
 	}
 
-	if err := configureNode(ctx, nodeConfig, coreClient.CoreV1().Nodes()); err != nil {
-		return err
+	if !standalone {
+		if err := configureNode(ctx, nodeConfig, coreClient.CoreV1().Nodes()); err != nil {
+			return err
+		}
 	}
 
-	if !nodeConfig.NoFlannel {
+	if !standalone && !nodeConfig.NoFlannel {
 		if err := flannel.Run(ctx, nodeConfig, coreClient.CoreV1().Nodes()); err != nil {
 			return err
 		}
@@ -235,6 +237,86 @@ func getConntrackConfig(nodeConfig *daemonconfig.Node) (*kubeproxyconfig.KubePro
 	}
 	ctConfig.TCPCloseWaitTimeout.Duration = closeWaitTimeout
 	return ctConfig, nil
+}
+
+// RunStandaloneWithProxy is similar to Run, but it also starts kube-proxy and netpol.
+func RunStandaloneWithProxy(ctx context.Context, cfg cmds.Agent) error {
+	proxy, err := createProxyAndValidateToken(ctx, &cfg)
+	if err != nil {
+		return err
+	}
+
+	nodeConfig, err := config.Get(ctx, cfg, proxy)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve agent configuration: %w", err)
+	}
+
+	if err := executor.Bootstrap(ctx, nodeConfig, cfg); err != nil {
+		return err
+	}
+
+	if cfg.ContainerRuntimeReady != nil {
+		close(cfg.ContainerRuntimeReady)
+	}
+
+	if err := tunnelSetup(ctx, nodeConfig, cfg, proxy); err != nil {
+		return err
+	}
+	if err := certMonitorSetup(ctx, nodeConfig, cfg); err != nil {
+		return err
+	}
+
+	if err := agent.RunKubeProxy(ctx, nodeConfig, proxy); err != nil {
+		return err
+	}
+
+	if !nodeConfig.AgentConfig.DisableNPC {
+		if err := netpol.Run(ctx, nodeConfig); err != nil {
+			return err
+		}
+	}
+
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// RunStandaloneKubelet sets up cgroups, configures the LB proxy, and triggers startup
+// of containerd and kubelet in standalone mode. It will only return in case of error or context
+// cancellation.
+func RunStandaloneKubelet(ctx context.Context, cfg cmds.Agent) error {
+	// override kubeconfig to enable standalone mode
+	bindAddress := "127.0.0.1"
+	if utilsnet.IsIPv6(net.ParseIP(cfg.NodeIP.String())) {
+		bindAddress = "::1"
+	}
+	cfg.ExtraKubeletArgs = append(
+		cfg.ExtraKubeletArgs,
+		"kubeconfig=",
+		"register-node=false",
+		"authentication-token-webhook=false",
+		"authorization-mode=AlwaysAllow",
+		"address="+bindAddress,
+	)
+	if err := cgroups.Validate(); err != nil {
+		return err
+	}
+
+	if cfg.Rootless && !cfg.RootlessAlreadyUnshared {
+		dualNode, err := utilsnet.IsDualStackIPStrings(cfg.NodeIP)
+		if err != nil {
+			return err
+		}
+		if err := rootless.Rootless(cfg.DataDir, dualNode); err != nil {
+			return err
+		}
+	}
+
+	proxy, err := createProxyAndValidateToken(ctx, &cfg)
+	if err != nil {
+		return err
+	}
+
+	return run(ctx, cfg, proxy, true)
 }
 
 // RunStandalone bootstraps the executor, but does not run the kubelet or containerd.
@@ -306,7 +388,7 @@ func Run(ctx context.Context, cfg cmds.Agent) error {
 		return err
 	}
 
-	return run(ctx, cfg, proxy)
+	return run(ctx, cfg, proxy, false)
 }
 
 func createProxyAndValidateToken(ctx context.Context, cfg *cmds.Agent) (proxy.Proxy, error) {

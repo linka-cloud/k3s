@@ -211,21 +211,6 @@ func ensureNodePassword(nodePasswordFile string) (string, error) {
 	return nodePassword, nil
 }
 
-func upgradeOldNodePasswordPath(oldNodePasswordFile, newNodePasswordFile string) {
-	password, err := os.ReadFile(oldNodePasswordFile)
-	if err != nil {
-		return
-	}
-	if err := os.WriteFile(newNodePasswordFile, password, 0600); err != nil {
-		logrus.Warnf("Unable to write password file: %v", err)
-		return
-	}
-	if err := os.Remove(oldNodePasswordFile); err != nil {
-		logrus.Warnf("Unable to remove old password file: %v", err)
-		return
-	}
-}
-
 func getServingCert(nodeName string, nodeIPs []net.IP, servingCertFile, servingKeyFile, nodePasswordFile string, info *clientaccess.Info) (*tls.Certificate, error) {
 	servingCert, err := Request("/v1-"+version.Program+"/serving-kubelet.crt", info, getNodeNamedCrt(nodeName, nodeIPs, nodePasswordFile))
 	if err != nil {
@@ -399,18 +384,7 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	servingKubeletCert := filepath.Join(envInfo.DataDir, "agent", "serving-kubelet.crt")
 	servingKubeletKey := filepath.Join(envInfo.DataDir, "agent", "serving-kubelet.key")
 
-	nodePasswordRoot := "/"
-	if envInfo.Rootless {
-		nodePasswordRoot = filepath.Join(envInfo.DataDir, "agent")
-	}
-	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", "rancher", "node")
-	if err := os.MkdirAll(nodeConfigPath, 0755); err != nil {
-		return nil, err
-	}
-
-	oldNodePasswordFile := filepath.Join(envInfo.DataDir, "agent", "node-password.txt")
-	newNodePasswordFile := filepath.Join(nodeConfigPath, "password")
-	upgradeOldNodePasswordPath(oldNodePasswordFile, newNodePasswordFile)
+	nodeConfigPath := filepath.Join(envInfo.DataDir, "agent", "node-password.txt")
 
 	nodeName, nodeIPs, err := util.GetHostnameAndIPs(envInfo.NodeName, envInfo.NodeIP)
 	if err != nil {
@@ -446,13 +420,13 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	nodeExternalAndInternalIPs := append(nodeIPs, nodeExternalIPs...)
 
 	// Ask the server to generate a kubelet server cert+key. These files are unique to this node.
-	servingCert, err := getServingCert(nodeName, nodeExternalAndInternalIPs, servingKubeletCert, servingKubeletKey, newNodePasswordFile, info)
+	servingCert, err := getServingCert(nodeName, nodeExternalAndInternalIPs, servingKubeletCert, servingKubeletKey, nodeConfigPath, info)
 	if err != nil {
 		return nil, errors.Wrap(err, servingKubeletCert)
 	}
 
 	// Ask the server to genrate a kubelet client cert+key. These files are unique to this node.
-	if err := getNodeNamedHostFile(clientKubeletCert, clientKubeletKey, nodeName, nodeIPs, newNodePasswordFile, info); err != nil {
+	if err := getNodeNamedHostFile(clientKubeletCert, clientKubeletKey, nodeName, nodeIPs, nodeConfigPath, info); err != nil {
 		return nil, errors.Wrap(err, clientKubeletCert)
 	}
 
@@ -494,6 +468,7 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 		Docker:                   envInfo.Docker,
 		SELinux:                  envInfo.EnableSELinux,
 		ContainerRuntimeEndpoint: envInfo.ContainerRuntimeEndpoint,
+		Standalone:               envInfo.Standalone,
 		ImageServiceEndpoint:     envInfo.ImageServiceEndpoint,
 		EnablePProf:              envInfo.EnablePProf,
 		FlannelBackend:           controlConfig.FlannelBackend,

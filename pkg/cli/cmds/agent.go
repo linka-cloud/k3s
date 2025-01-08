@@ -53,6 +53,7 @@ type Agent struct {
 	ImageCredProvBinDir      string
 	ImageCredProvConfig      string
 	ContainerRuntimeReady    chan<- struct{}
+	Standalone               bool
 	AgentShared
 }
 

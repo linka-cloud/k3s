@@ -38,6 +38,23 @@ func Agent(ctx context.Context, nodeConfig *daemonconfig.Node, proxy proxy.Proxy
 	return nil
 }
 
+func RunKubeProxy(ctx context.Context, nodeConfig *daemonconfig.Node, proxy proxy.Proxy) error {
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	logs.InitLogs()
+	defer logs.FlushLogs()
+
+	go func() {
+		if !config.KubeProxyDisabled(ctx, nodeConfig, proxy) {
+			if err := startKubeProxy(ctx, &nodeConfig.AgentConfig); err != nil {
+				logrus.Fatalf("Failed to start kube-proxy: %v", err)
+			}
+		}
+	}()
+
+	return nil
+}
+
 func startKubeProxy(ctx context.Context, cfg *daemonconfig.Agent) error {
 	argsMap := kubeProxyArgs(cfg)
 	args := daemonconfig.GetArgs(argsMap, cfg.ExtraKubeProxyArgs)

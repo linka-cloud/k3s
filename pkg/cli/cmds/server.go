@@ -41,6 +41,7 @@ type Server struct {
 	APIServerBindAddress     string
 	DataDir                  string
 	DisableAgent             bool
+	StandaloneAgent          bool
 	KubeConfigOutput         string
 	KubeConfigMode           string
 	KubeConfigGroup          string
@@ -84,6 +85,10 @@ type Server struct {
 	StartupHooks             []StartupHook
 	SupervisorMetrics        bool
 	EtcdExposeMetrics        bool
+}
+
+func (s *Server) HasAgent() bool {
+	return !s.DisableAgent || s.StandaloneAgent
 }
 
 var (

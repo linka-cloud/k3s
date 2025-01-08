@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
 func setupMounts(stateDir string) error {
@@ -36,7 +38,7 @@ func setupMounts(stateDir string) error {
 		{"/var/lib/cni", filepath.Join(stateDir, "cni")},
 		{"/var/lib/kubelet", filepath.Join(stateDir, "kubelet")},
 		{"/etc/rancher", filepath.Join(stateDir, "etc", "rancher")},
-		{"/run/k3s/containerd", filepath.Join(runDir, "k3s", "containerd")},
+		{"/run/" + version.Program + "/containerd", filepath.Join(runDir, version.Program, "containerd")},
 	}
 
 	for _, v := range mountMap {

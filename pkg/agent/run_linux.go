@@ -9,11 +9,12 @@ import (
 
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/version"
 )
 
-const (
-	criDockerdSock = "unix:///run/k3s/cri-dockerd/cri-dockerd.sock"
-	containerdSock = "unix:///run/k3s/containerd/containerd.sock"
+var (
+	criDockerdSock = "unix:///run/" + version.Program + "/cri-dockerd/cri-dockerd.sock"
+	containerdSock = "unix:///run/" + version.Program + "/containerd/containerd.sock"
 )
 
 // setupCriCtlConfig creates the crictl config file and populates it
