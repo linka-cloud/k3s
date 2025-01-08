@@ -127,7 +127,7 @@ func (a *agentTunnel) startWatches(ctx context.Context, config *daemonconfig.Nod
 
 	// We don't need to run the tunnel authorizer if the container runtime endpoint is /dev/null,
 	// signifying that this is an agentless server that will not register a node.
-	if config.ContainerRuntimeEndpoint != "/dev/null" {
+	if config.ContainerRuntimeEndpoint != "/dev/null" && !config.Standalone {
 		// Allow the kubelet port, as published via our node object.
 		go a.setKubeletPort(ctx, rbacReady)
 
