@@ -52,6 +52,7 @@ type Agent struct {
 	Taints                   cli.StringSlice
 	ImageCredProvBinDir      string
 	ImageCredProvConfig      string
+	Standalone               bool
 	AgentShared
 }
 
