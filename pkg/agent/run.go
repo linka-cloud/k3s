@@ -52,7 +52,7 @@ import (
 	utilsptr "k8s.io/utils/ptr"
 )
 
-func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
+func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy, standalone bool) error {
 	nodeConfig, err := config.Get(ctx, cfg, proxy)
 	if err != nil {
 		return pkgerrors.WithMessage(err, "failed to retrieve agent configuration")
@@ -143,7 +143,7 @@ func run(ctx context.Context, cfg cmds.Agent, proxy proxy.Proxy) error {
 
 	go func() {
 		<-executor.APIServerReadyChan()
-		if err := startNetwork(ctx, &sync.WaitGroup{}, nodeConfig); err != nil {
+		if err := startNetwork(ctx, &sync.WaitGroup{}, nodeConfig, standalone); err != nil {
 			signals.RequestShutdown(pkgerrors.WithMessage(err, "failed to start networking"))
 			return
 		}
@@ -171,13 +171,15 @@ func startCRI(ctx context.Context, nodeConfig *daemonconfig.Node) error {
 }
 
 // startNetwork updates the network annotations on the node and starts the CNI
-func startNetwork(ctx context.Context, wg *sync.WaitGroup, nodeConfig *daemonconfig.Node) error {
+func startNetwork(ctx context.Context, wg *sync.WaitGroup, nodeConfig *daemonconfig.Node, standalone bool) error {
+	if standalone {
+		return nil
+	}
 	// Use the kubelet kubeconfig to update annotations on the local node
 	kubeletClient, err := util.GetClientSet(nodeConfig.AgentConfig.KubeConfigKubelet)
 	if err != nil {
 		return err
 	}
-
 	if err := configureNode(ctx, nodeConfig, kubeletClient); err != nil {
 		return err
 	}
@@ -227,6 +229,89 @@ func getConntrackConfig(nodeConfig *daemonconfig.Node) (*kubeproxyconfig.KubePro
 	}
 	ctConfig.TCPCloseWaitTimeout.Duration = closeWaitTimeout
 	return ctConfig, nil
+}
+
+// RunStandaloneWithProxy is similar to Run, but it also starts kube-proxy and netpol.
+func RunStandaloneWithProxy(ctx context.Context, wg *sync.WaitGroup, cfg cmds.Agent) error {
+	proxy, err := createProxyAndValidateToken(ctx, &cfg)
+	if err != nil {
+		return err
+	}
+
+	nodeConfig, err := config.Get(ctx, cfg, proxy)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve agent configuration: %w", err)
+	}
+
+	if err := executor.Bootstrap(ctx, nodeConfig, cfg); err != nil {
+		return err
+	}
+
+	if err := tunnelSetup(ctx, nodeConfig, cfg, proxy); err != nil {
+		return err
+	}
+	if err := certMonitorSetup(ctx, nodeConfig, cfg); err != nil {
+		return err
+	}
+
+	if err := agent.RunKubeProxy(ctx, nodeConfig, proxy); err != nil {
+		return err
+	}
+
+	if nodeConfig.SupervisorMetrics {
+		if err := metrics.DefaultMetrics.Start(ctx, nodeConfig); err != nil {
+			return pkgerrors.WithMessage(err, "failed to serve metrics")
+		}
+	}
+
+	if nodeConfig.EnablePProf {
+		if err := profile.DefaultProfiler.Start(ctx, nodeConfig); err != nil {
+			return pkgerrors.WithMessage(err, "failed to serve pprof")
+		}
+	}
+
+	return nil
+}
+
+// RunStandaloneKubelet sets up cgroups, configures the LB proxy, and triggers startup
+// of containerd and kubelet in standalone mode. It will only return in case of error or context
+// cancellation.
+func RunStandaloneKubelet(ctx context.Context, wg *sync.WaitGroup, cfg cmds.Agent) error {
+	// override kubeconfig to enable standalone mode
+	bindAddress := "127.0.0.1"
+	if utilsnet.IsIPv6(net.ParseIP(cfg.NodeIP.String())) {
+		bindAddress = "::1"
+	}
+	args := append(
+		cfg.ExtraKubeletArgs.Value(),
+		"kubeconfig=",
+		"register-node=false",
+		"authentication-token-webhook=false",
+		"authorization-mode=AlwaysAllow",
+		"address="+bindAddress,
+	)
+	cfg.ExtraKubeletArgs.Set(strings.Join(args, ","))
+
+	if err := cgroups.Validate(); err != nil {
+		return err
+	}
+
+	if cfg.Rootless && !cfg.RootlessAlreadyUnshared {
+		dualNode, err := utilsnet.IsDualStackIPStrings(cfg.NodeIP.Value())
+		if err != nil {
+			return err
+		}
+		if err := rootless.Rootless(cfg.DataDir, dualNode); err != nil {
+			return err
+		}
+	}
+
+	proxy, err := createProxyAndValidateToken(ctx, &cfg)
+	if err != nil {
+		return err
+	}
+
+	return run(ctx, cfg, proxy, true)
 }
 
 // RunStandalone bootstraps the executor, but does not run the kubelet or containerd.
@@ -291,7 +376,7 @@ func Run(ctx context.Context, wg *sync.WaitGroup, cfg cmds.Agent) error {
 		return err
 	}
 
-	return run(ctx, cfg, proxy)
+	return run(ctx, cfg, proxy, false)
 }
 
 func createProxyAndValidateToken(ctx context.Context, cfg *cmds.Agent) (proxy.Proxy, error) {

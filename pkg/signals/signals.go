@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
 
-var onlyOneSignalHandler = make(chan struct{})
 var signalHandler chan os.Signal
 var shutdownHandler chan error
 
@@ -16,8 +16,10 @@ var shutdownHandler chan error
 // which is cancelled on one of these signals. If a second signal is caught, the program
 // is terminated with exit code 1.
 func SetupSignalContext() context.Context {
-	close(onlyOneSignalHandler) // panics when called twice
+	return setupSignalContext()
+}
 
+var setupSignalContext = sync.OnceValue(func() context.Context {
 	signalHandler = make(chan os.Signal, 2)
 	shutdownHandler = make(chan error, 1)
 
@@ -41,7 +43,7 @@ func SetupSignalContext() context.Context {
 	}()
 
 	return ctx
-}
+})
 
 // RequestShutdown emulates a received event that is considered as shutdown signal
 // This returns whether a handler was notified
