@@ -41,14 +41,15 @@ import (
 )
 
 func Run(app *cli.Context) error {
-	return run(app, &cmds.ServerConfig, server.CustomControllers{}, server.CustomControllers{})
+	ctx := signals.SetupSignalContext()
+	return run(ctx, &cmds.ServerConfig, server.CustomControllers{}, server.CustomControllers{}, app.Bool("debug"))
 }
 
-func RunWithControllers(app *cli.Context, leaderControllers server.CustomControllers, controllers server.CustomControllers) error {
-	return run(app, &cmds.ServerConfig, leaderControllers, controllers)
+func RunWithControllers(ctx context.Context, leaderControllers server.CustomControllers, controllers server.CustomControllers, debug bool) error {
+	return run(ctx, &cmds.ServerConfig, leaderControllers, controllers, debug)
 }
 
-func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomControllers, controllers server.CustomControllers) (rerr error) {
+func run(ctx context.Context, cfg *cmds.Server, leaderControllers server.CustomControllers, controllers server.CustomControllers, debug bool) (rerr error) {
 	var err error
 	// Validate build env
 	cmds.MustValidateGolang()
@@ -60,7 +61,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	// If the agent is enabled, evacuate cgroup v2 before doing anything else that may fork.
 	// If the agent is disabled, we don't need to bother doing this as it is only the kubelet
 	// that cares about cgroups.
-	if !cfg.DisableAgent {
+	if cfg.HasAgent() {
 		if err := cmds.EvacuateCgroup2(); err != nil {
 			return err
 		}
@@ -72,7 +73,9 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		return err
 	}
 
-	ctx := signals.SetupSignalContext()
+	if cfg.HasAgent() && os.Getuid() != 0 && !cfg.Rootless {
+		return fmt.Errorf("server must run as root, or with --rootless and/or --disable-agent")
+	}
 	wg := &sync.WaitGroup{}
 
 	// If exiting due to an error, ensure that contexts are cancelled so that the
@@ -100,7 +103,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 			return err
 		}
 		cfg.DataDir = dataDir
-		if !cfg.DisableAgent {
+		if cfg.HasAgent() {
 			dualNode, err := utilsnet.IsDualStackIPStrings(cmds.AgentConfig.NodeIP.Value())
 			if err != nil {
 				return err
@@ -414,7 +417,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		}
 	}
 
-	logrus.Info("Starting " + version.Program + " " + app.App.Version)
+	logrus.Info("Starting " + version.Program + " " + version.Version)
 
 	notifySocket := os.Getenv("NOTIFY_SOCKET")
 	os.Unsetenv("NOTIFY_SOCKET")
@@ -430,7 +433,7 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	}
 
 	agentConfig := cmds.AgentConfig
-	agentConfig.Debug = app.Bool("debug")
+	agentConfig.Debug = debug
 	agentConfig.DataDir = filepath.Dir(serverConfig.ControlConfig.DataDir)
 	agentConfig.ServerURL = url
 	agentConfig.Token = token
@@ -471,14 +474,15 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 	}
 
 	if cfg.DisableAgent {
-		agentConfig.ContainerRuntimeEndpoint = "/dev/null"
-		if err := agent.RunStandalone(ctx, wg, agentConfig); err != nil {
-			return err
+		if cfg.StandaloneAgent {
+			agentConfig.Standalone = true
+			return agent.RunStandaloneKubelet(ctx, wg, agentConfig)
 		}
-	} else {
-		if err := agent.Run(ctx, wg, agentConfig); err != nil {
-			return err
+		if !cfg.DisableKubeProxy {
+			agentConfig.ContainerRuntimeEndpoint = "/dev/null"
+			return agent.RunStandaloneWithProxy(ctx, wg, agentConfig)
 		}
+		return agent.RunStandalone(ctx, wg, agentConfig)
 	}
 
 	go cmds.WriteCoverage(ctx)

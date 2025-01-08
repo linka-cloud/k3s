@@ -53,6 +53,7 @@ type Node struct {
 	ServerHTTPSPort          int
 	SupervisorPort           int
 	DefaultRuntime           string
+	Standalone               bool
 }
 
 type Containerd struct {
