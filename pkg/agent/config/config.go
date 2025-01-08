@@ -572,6 +572,7 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
 	nodeConfig := &config.Node{
 		SELinux:                  envInfo.EnableSELinux,
 		ContainerRuntimeEndpoint: envInfo.ContainerRuntimeEndpoint,
+		Standalone:               envInfo.Standalone,
 		ImageServiceEndpoint:     envInfo.ImageServiceEndpoint,
 		EnablePProf:              envInfo.EnablePProf,
 		EgressSelectorMode:       controlConfig.EgressSelectorMode,

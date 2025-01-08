@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/containerd/containerd/v2/cmd/ctr/app"
+	"github.com/k3s-io/k3s/pkg/version"
 	"github.com/urfave/cli/v2"
 )
 
@@ -33,7 +34,7 @@ func main() {
 	for i, flag := range app.Flags {
 		if sFlag, ok := flag.(*cli.StringFlag); ok {
 			if sFlag.Name == "address" {
-				sFlag.Value = "/run/k3s/containerd/containerd.sock"
+				sFlag.Value = "/run/"+ version.Program + "/containerd/containerd.sock"
 				app.Flags[i] = sFlag
 			} else if sFlag.Name == "namespace" {
 				sFlag.Value = "k8s.io"
