@@ -38,11 +38,11 @@ go test -ldflags "-X 'github.com/k3s-io/k3s/tests/integration.existingServer=Tru
 Integration tests can also be run via a [Sonobuoy](https://sonobuoy.io/docs/v0.53.2/) plugin on an existing single-node cluster.
 ```bash
 ./scripts/build-tests-sonobuoy
-sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml sonobuoy run --plugin ./dist/artifacts/k3s-int-tests.yaml
+sudo KUBECONFIG=/etc/k3s/k3s.yaml sonobuoy run --plugin ./dist/artifacts/k3s-int-tests.yaml
 ```
 Check the sonobuoy status and retrieve results
 ``` 
-sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml sonobuoy status
-sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml sonobuoy retrieve
-sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml sonobuoy results <TAR_FILE_FROM_RETRIEVE>
+sudo KUBECONFIG=/etc/k3s/k3s.yaml sonobuoy status
+sudo KUBECONFIG=/etc/k3s/k3s.yaml sonobuoy retrieve
+sudo KUBECONFIG=/etc/k3s/k3s.yaml sonobuoy results <TAR_FILE_FROM_RETRIEVE>
 ```

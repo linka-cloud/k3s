@@ -47,7 +47,7 @@ The new token rotation feature will allow the user to rotate the token value use
 
 A new subcommand `k3s token rotate`, will be added to the `k3s` binary. This subcommand can either:
 1: take a new supplied token value or 2: Generate a 16 character token and then replace the existing token.
-The /var/lib/rancher/k3s/server/token file and passwd file will be updated with the new token value.
+The /var/lib/k3s/server/token file and passwd file will be updated with the new token value.
 Admins can then use the new token value to rejoin existing server nodes or join new server nodes to the cluster.
 
 Similar to the `k3s certificate rotate` and the `k3s secret-encrypt rotate-keys` subcommands,
@@ -72,16 +72,16 @@ OR
 k3s token rotate -t <OLD_TOKEN> --new-token <NEW_TOKEN>
 ```
 
-2) If 1a) Retrieve the new random token value from the /var/lib/rancher/k3s/server/token file on server 1
+2) If 1a) Retrieve the new random token value from the /var/lib/k3s/server/token file on server 1
 ```
-vi /var/lib/rancher/k3s/server/token
+vi /var/lib/k3s/server/token
 ```
 
 3) Stop and restart the k3s server process on servers 2 and 3 with the new token value:
 
 ```
 systemctl stop k3s
-# edit /etc/rancher/k3s/config.yaml and update the token value
+# edit /etc/k3s/config.yaml and update the token value
 systemctl start k3s
 ```
 

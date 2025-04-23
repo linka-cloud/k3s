@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 # Example K3s CA certificate generation script.
-# 
+#
 # This script will generate files sufficient to bootstrap K3s cluster certificate
 # authorities.  By default, the script will create the required files under
-# /var/lib/rancher/k3s/server/tls, where they will be found and used by K3s during initial
+# /var/lib/k3s/server/tls, where they will be found and used by K3s during initial
 # cluster startup. Note that these files MUST be present before K3s is started the first
 # time; certificate data SHOULD NOT be changed once the cluster has been initialized.
 #
 # The output path may be overridden with the DATA_DIR environment variable.
-# 
+#
 # This script will also auto-generate certificates and keys for both root and intermediate
 # certificate authorities if none are found.
 # If you have existing certs, you must place then in `DATA_DIR/server/tls`.
@@ -26,7 +26,7 @@ umask 027
 
 TIMESTAMP=$(date +%s)
 PRODUCT="${PRODUCT:-k3s}"
-DATA_DIR="${DATA_DIR:-/var/lib/rancher/${PRODUCT}}"
+DATA_DIR="${DATA_DIR:-/var/lib/${PRODUCT}}"
 
 if type -t openssl-3 &>/dev/null; then
   OPENSSL=openssl-3
@@ -154,7 +154,7 @@ echo "CA certificate generation complete. Required files are now present in: ${D
 echo "For security purposes, you should make a secure copy of the following files and remove them from cluster members:"
 ls ${DATA_DIR}/server/tls/root-ca.* ${DATA_DIR}/server/tls/intermediate-ca.* | xargs -n1 echo -e "\t"
 
-if [ "${DATA_DIR}" != "/var/lib/rancher/${PRODUCT}" ]; then
+if [ "${DATA_DIR}" != "/var/lib/${PRODUCT}" ]; then
   echo
   echo "To update certificates on an existing cluster, you may now run:"
   echo "    k3s certificate rotate-ca --path=${DATA_DIR}/server"

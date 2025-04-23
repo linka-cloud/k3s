@@ -42,12 +42,12 @@ func StartK3sCluster(nodes []e2e.VagrantNode, serverYAML string, agentYAML strin
 		var resetCmd string
 		var startCmd string
 		if strings.Contains(node.Name, "server") {
-			resetCmd = "head -n 4 /etc/rancher/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/rancher/k3s/config.yaml"
-			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/rancher/k3s/config.yaml", serverYAML)
+			resetCmd = "head -n 4 /etc/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/k3s/config.yaml"
+			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/k3s/config.yaml", serverYAML)
 			startCmd = "systemctl start k3s"
 		} else {
-			resetCmd = "head -n 5 /etc/rancher/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/rancher/k3s/config.yaml"
-			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/rancher/k3s/config.yaml", agentYAML)
+			resetCmd = "head -n 5 /etc/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/k3s/config.yaml"
+			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/k3s/config.yaml", agentYAML)
 			startCmd = "systemctl start k3s-agent"
 		}
 		if _, err := node.RunCmdOnNode(resetCmd); err != nil {
@@ -91,7 +91,7 @@ var _ = Describe("Various Startup Configurations", Ordered, func() {
 	Context("Verify dedicated supervisor port", func() {
 		It("Starts K3s with no issues", func() {
 			for _, node := range tc.Agents {
-				cmd := "mkdir -p /etc/rancher/k3s/config.yaml.d; grep -F server: /etc/rancher/k3s/config.yaml | sed s/6443/9345/ > /tmp/99-server.yaml; sudo mv /tmp/99-server.yaml /etc/rancher/k3s/config.yaml.d/"
+				cmd := "mkdir -p /etc/k3s/config.yaml.d; grep -F server: /etc/k3s/config.yaml | sed s/6443/9345/ > /tmp/99-server.yaml; sudo mv /tmp/99-server.yaml /etc/k3s/config.yaml.d/"
 				res, err := node.RunCmdOnNode(cmd)
 				By("checking command results: " + res)
 				Expect(err).NotTo(HaveOccurred())
@@ -189,7 +189,7 @@ var _ = Describe("Various Startup Configurations", Ordered, func() {
 		})
 
 		It("Migrates from SQLite to etcd", func() {
-			configCmd := "echo 'cluster-init: true' >> /etc/rancher/k3s/config.yaml"
+			configCmd := "echo 'cluster-init: true' >> /etc/k3s/config.yaml"
 			_, err := tc.Servers[0].RunCmdOnNode(configCmd)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -347,9 +347,9 @@ var _ = Describe("Various Startup Configurations", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = tc.Servers[0].RunCmdOnNode("docker save rancher/shell:v0.1.28 -o /tmp/mytestcontainer.tar")
 			Expect(err).NotTo(HaveOccurred())
-			_, err = tc.Servers[0].RunCmdOnNode("mkdir -p /var/lib/rancher/k3s/agent/images/")
+			_, err = tc.Servers[0].RunCmdOnNode("mkdir -p /var/lib/k3s/agent/images/")
 			Expect(err).NotTo(HaveOccurred())
-			_, err = tc.Servers[0].RunCmdOnNode("mv /tmp/mytestcontainer.tar /var/lib/rancher/k3s/agent/images/")
+			_, err = tc.Servers[0].RunCmdOnNode("mv /tmp/mytestcontainer.tar /var/lib/k3s/agent/images/")
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("Starts K3s with no issues", func() {
