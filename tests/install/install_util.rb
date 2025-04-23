@@ -9,7 +9,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def waitForCoreDns(vm)
     vm.provision "k3s-wait-for-coredns", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -29,7 +29,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def waitForLocalStorage(vm)
     vm.provision "k3s-wait-for-local-storage", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -50,7 +50,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def waitForTraefik(vm)
     vm.provision "k3s-wait-for-traefik", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -60,7 +60,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def kubectlStatus(vm)
     vm.provision "k3s-status", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -70,7 +70,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def checkK3sProcesses(vm)
     vm.provision "k3s-procps", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -80,7 +80,7 @@ def waitForNodeReady(vm)
       SHELL
     end
   end
-  
+
   def checkCGroupV2(vm)
     vm.provision "cgroupv2", type: "shell", run: ENV['CI'] == 'true' ? 'never' : 'once' do |sh|
       sh.inline = <<~SHELL
@@ -97,7 +97,7 @@ def waitForNodeReady(vm)
       #!/usr/bin/env bash
       set -eu -o pipefail
       echo 'Mounting server dir'
-      mount --bind /var/lib/rancher/k3s/server /var/lib/rancher/k3s/server
+      mount --bind /var/lib/k3s/server /var/lib/k3s/server
       SHELL
     end
   end
@@ -119,7 +119,7 @@ def waitForNodeReady(vm)
       #!/usr/bin/env bash
       set -eu -o pipefail
       echo 'Check the mount'
-      mount | grep /var/lib/rancher/k3s/server
+      mount | grep /var/lib/k3s/server
       SHELL
     end
   end
@@ -130,7 +130,7 @@ def waitForNodeReady(vm)
       #!/usr/bin/env bash
       set -eu -o pipefail
       echo 'unmount the mount'
-      umount /var/lib/rancher/k3s/server
+      umount /var/lib/k3s/server
       rm -rf /var/lib/rancher
       SHELL
     end

@@ -59,7 +59,7 @@ var _ = Describe("Verify snapshots and cluster restores work", Ordered, func() {
 			Eventually(func(g Gomega) {
 				_, err := config.Servers[0].RunCmdOnNode("k3s etcd-snapshot save")
 				g.Expect(err).NotTo(HaveOccurred())
-				cmd := "ls /var/lib/rancher/k3s/server/db/snapshots/"
+				cmd := "ls /var/lib/k3s/server/db/snapshots/"
 				snapshotname, err = config.Servers[0].RunCmdOnNode(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				fmt.Println("Snapshot Name", snapshotname)
@@ -82,7 +82,7 @@ var _ = Describe("Verify snapshots and cluster restores work", Ordered, func() {
 
 	Context("Cluster restores from snapshot", func() {
 		It("Restores the snapshot", func() {
-			//Stop k3s on all servers
+			// Stop k3s on all servers
 			for _, server := range config.Servers {
 				cmd := "systemctl stop k3s"
 				Expect(server.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
@@ -91,8 +91,8 @@ var _ = Describe("Verify snapshots and cluster restores work", Ordered, func() {
 					Expect(server.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
 				}
 			}
-			//Restores from snapshot on server-0
-			cmd := "k3s server --cluster-init --cluster-reset --cluster-reset-restore-path=/var/lib/rancher/k3s/server/db/snapshots/" + snapshotname
+			// Restores from snapshot on server-0
+			cmd := "k3s server --cluster-init --cluster-reset --cluster-reset-restore-path=/var/lib/k3s/server/db/snapshots/" + snapshotname
 			res, err := config.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).Should(ContainSubstring("Managed etcd cluster membership has been reset, restart without --cluster-reset flag now"))
@@ -122,7 +122,7 @@ var _ = Describe("Verify snapshots and cluster restores work", Ordered, func() {
 			// We must remove the db directory on the other servers before restarting k3s
 			// otherwise the nodes may join the old cluster
 			for _, server := range config.Servers[1:] {
-				cmd := "rm -rf /var/lib/rancher/k3s/server/db"
+				cmd := "rm -rf /var/lib/k3s/server/db"
 				Expect(server.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
 			}
 

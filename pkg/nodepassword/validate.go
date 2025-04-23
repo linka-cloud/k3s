@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
 	"github.com/k3s-io/k3s/pkg/util"
+	"github.com/k3s-io/k3s/pkg/version"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -138,7 +139,7 @@ func verifyLocalPassword(ctx context.Context, control *config.Control, mu *sync.
 	if control.Rootless {
 		nodePasswordRoot = filepath.Join(path.Dir(control.DataDir), "agent")
 	}
-	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", "rancher", "node")
+	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", version.Program, "node")
 	nodePasswordFile := filepath.Join(nodeConfigPath, "password")
 
 	passBytes, err := os.ReadFile(nodePasswordFile)

@@ -56,7 +56,7 @@ var _ = Describe("Verify that btrfs based servers work", Ordered, func() {
 			e2e.DumpPods(tc.KubeconfigFile)
 		})
 		It("Checks that btrfs snapshots exist", func() {
-			cmd := "btrfs subvolume list /var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.btrfs"
+			cmd := "btrfs subvolume list /var/lib/k3s/agent/containerd/io.containerd.snapshotter.v1.btrfs"
 			Eventually(func(g Gomega) {
 				res, err := tc.Servers[0].RunCmdOnNode(cmd)
 				g.Expect(err).NotTo(HaveOccurred())

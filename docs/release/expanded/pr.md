@@ -54,7 +54,7 @@ We update the go.mod in k3s to point to the new modules, and submit the change f
       1. example error:
          ```
          #- Tail: /tmp/bEaiAq/agents/1/logs/system.log
-         [LATEST-SERVER] E0921 19:16:55.430977      57 cri_stats_provider.go:455] "Failed to get the info of the filesystem with mountpoint" err="unable to find data in memory cache" mountpoint="/var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.overlayfs
+         [LATEST-SERVER] E0921 19:16:55.430977      57 cri_stats_provider.go:455] "Failed to get the info of the filesystem with mountpoint" err="unable to find data in memory cache" mountpoint="/var/lib/k3s/agent/containerd/io.containerd.snapshotter.v1.overlayfs
          [LATEST-SERVER] I0921 19:16:55.431186      57 proxier.go:667] "Failed to load kernel module with modprobe, you can ignore this message when kube-proxy is running inside container without mounting /lib/modules" moduleName="ip_vs_rr"
          ```
       1. the first part of the log gives a hint to the log level: "E0921" is an error log "I0921" is an info log

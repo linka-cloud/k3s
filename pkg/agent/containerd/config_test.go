@@ -990,16 +990,16 @@ func Test_UnitGetHostConfigs(t *testing.T) {
 					Config:   tempDir + "/config.toml",
 					Template: tempDir,
 					Address:  "/run/k3s/containerd/containerd.sock",
-					Root:     "/var/lib/rancher/k3s/agent/containerd",
-					Opt:      "/var/lib/rancher/k3s/agent/containerd",
+					Root:     "/var/lib/k3s/agent/containerd",
+					Opt:      "/var/lib/k3s/agent/containerd",
 					State:    "/run/k3s/containerd",
 				},
 				AgentConfig: config.Agent{
 					ImageServiceSocket: "containerd-stargz-grpc.sock",
 					Registry:           registry.Registry,
 					Snapshotter:        "stargz",
-					CNIBinDir:          "/var/lib/rancher/k3s/data/cni",
-					CNIConfDir:         "/var/lib/rancher/k3s/agent/etc/cni/net.d",
+					CNIBinDir:          "/var/lib/k3s/data/cni",
+					CNIConfDir:         "/var/lib/k3s/agent/etc/cni/net.d",
 				},
 			}
 

@@ -13,6 +13,6 @@ var (
 		Aliases: []string{"c"},
 		Usage:   "(config) Load configuration from `FILE`",
 		EnvVars: []string{version.ProgramUpper + "_CONFIG_FILE"},
-		Value:   "/etc/rancher/" + version.Program + "/config.yaml",
+		Value:   "/etc/" + version.Program + "/config.yaml",
 	}
 )

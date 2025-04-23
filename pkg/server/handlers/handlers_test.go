@@ -1636,10 +1636,10 @@ func getCorelessControl(t *testing.T) (*config.Control, context.CancelFunc) {
 	// setting up a whole remotedialer tunnel server here
 	control.Runtime.Tunnel = http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {})
 
-	// Set up node password file in rootless path to avoid having to stage test fixtures in /etc/rancher
+	// Set up node password file in rootless path to avoid having to stage test fixtures in /etc/
 	control.Rootless = true
 	nodePasswordRoot := filepath.Join(path.Dir(control.DataDir), "agent")
-	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", "rancher", "node")
+	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", version.Program, "node")
 	nodePasswordFile := filepath.Join(nodeConfigPath, "password")
 
 	os.MkdirAll(nodeConfigPath, 0700)

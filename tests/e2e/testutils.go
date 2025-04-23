@@ -321,7 +321,7 @@ func KillK3sCluster(nodes []VagrantNode) error {
 		if _, err := node.RunCmdOnNode("k3s-killall.sh"); err != nil {
 			return err
 		}
-		if _, err := node.RunCmdOnNode("rm -rf /etc/rancher/k3s/config.yaml.d /var/lib/kubelet/pods /var/lib/rancher/k3s/agent/etc /var/lib/rancher/k3s/agent/containerd /var/lib/rancher/k3s/server/db /var/log/pods /run/k3s /run/flannel"); err != nil {
+		if _, err := node.RunCmdOnNode("rm -rf /etc/k3s/config.yaml.d /var/lib/kubelet/pods /var/lib/k3s/agent/etc /var/lib/k3s/agent/containerd /var/lib/k3s/server/db /var/log/pods /run/k3s /run/flannel"); err != nil {
 			return err
 		}
 		if _, err := node.RunCmdOnNode("journalctl --flush --sync --rotate --vacuum-size=1"); err != nil {
@@ -403,7 +403,7 @@ func (v VagrantNode) FetchNodeExternalIP() (string, error) {
 // GenKubeconfigFile extracts the kubeconfig from the given node and modifies it for use outside the VM.
 func GenKubeconfigFile(nodeName string) (string, error) {
 	kubeconfigFile := fmt.Sprintf("kubeconfig-%s", nodeName)
-	cmd := fmt.Sprintf("vagrant scp %s:/etc/rancher/k3s/k3s.yaml ./%s", nodeName, kubeconfigFile)
+	cmd := fmt.Sprintf("vagrant scp %s:/etc/k3s/k3s.yaml ./%s", nodeName, kubeconfigFile)
 	_, err := tests.RunCommand(cmd)
 	if err != nil {
 		return "", err
@@ -571,7 +571,7 @@ func SaveJournalLogs(nodes []VagrantNode) error {
 func GetConfig(nodes []VagrantNode) string {
 	config := &strings.Builder{}
 	for _, node := range nodes {
-		cmd := "tar -Pc /etc/rancher/k3s/ | tar -vxPO"
+		cmd := "tar -Pc /etc/k3s/ | tar -vxPO"
 		if c, err := node.RunCmdOnNode(cmd); err != nil {
 			fmt.Fprintf(config, "** failed to get config for node %s ***\n%v\n", node, err)
 		} else {
