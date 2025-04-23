@@ -231,6 +231,6 @@ resource "null_resource" "run_etcd" {
 resource "null_resource" "get-kubeconfig" {
   provisioner "local-exec" {
     interpreter = ["bash", "-c"]
-    command     = "until ssh -i ${var.ssh_key_path} ubuntu@${aws_instance.k3s-server[0].public_ip} 'sudo sed \"s/localhost/$var.domain_name}/g;s/127.0.0.1/${var.domain_name}/g\" /etc/rancher/k3s/k3s.yaml' >| ../tests/kubeconfig.yaml; do sleep 5; done"
+    command     = "until ssh -i ${var.ssh_key_path} ubuntu@${aws_instance.k3s-server[0].public_ip} 'sudo sed \"s/localhost/$var.domain_name}/g;s/127.0.0.1/${var.domain_name}/g\" /etc/k3s/k3s.yaml' >| ../tests/kubeconfig.yaml; do sleep 5; done"
   }
 }

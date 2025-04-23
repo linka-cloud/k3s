@@ -39,13 +39,13 @@ var _ = Describe("Verify Create", Ordered, func() {
 
 	Context("Add images that should be imported by containerd automatically", func() {
 		It("Create a folder in agent/images", func() {
-			cmd := `mkdir /var/lib/rancher/k3s/agent/images`
+			cmd := `mkdir /var/lib/k3s/agent/images`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 		})
 
 		It("Create file for auto import and search in the image store", func() {
-			cmd := `echo mirror.gcr.io/redis:latest | tee /var/lib/rancher/k3s/agent/images/testautoimport.txt`
+			cmd := `echo mirror.gcr.io/redis:latest | tee /var/lib/k3s/agent/images/testautoimport.txt`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -57,7 +57,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 		})
 
 		It("Change name for the file and see if the label is still pinned", func() {
-			cmd := `mv /var/lib/rancher/k3s/agent/images/testautoimport.txt /var/lib/rancher/k3s/agent/images/testautoimportrename.txt`
+			cmd := `mv /var/lib/k3s/agent/images/testautoimport.txt /var/lib/k3s/agent/images/testautoimportrename.txt`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -69,7 +69,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 		})
 
 		It("Create, remove and create again a file", func() {
-			cmd := `echo mirror.gcr.io/busybox:latest | tee /var/lib/rancher/k3s/agent/images/bb.txt`
+			cmd := `echo mirror.gcr.io/busybox:latest | tee /var/lib/k3s/agent/images/bb.txt`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -79,7 +79,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 				g.Expect(tc.Servers[0].RunCmdOnNode(cmd)).Should(ContainSubstring("io.cri-containerd.pinned=pinned"))
 			}, "300s", "5s").Should(Succeed())
 
-			cmd = `rm /var/lib/rancher/k3s/agent/images/bb.txt`
+			cmd = `rm /var/lib/k3s/agent/images/bb.txt`
 			_, err = tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -89,7 +89,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 				g.Expect(tc.Servers[0].RunCmdOnNode(cmd)).Should(ContainSubstring("io.cri-containerd.pinned=pinned"))
 			}, "300s", "5s").Should(Succeed())
 
-			cmd = `echo mirror.gcr.io/busybox:latest | tee /var/lib/rancher/k3s/agent/images/bb.txt`
+			cmd = `echo mirror.gcr.io/busybox:latest | tee /var/lib/k3s/agent/images/bb.txt`
 			_, err = tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -101,15 +101,15 @@ var _ = Describe("Verify Create", Ordered, func() {
 		})
 
 		It("Move the folder, add a image and then see if the image is going to be pinned", func() {
-			cmd := `mv /var/lib/rancher/k3s/agent/images /var/lib/rancher/k3s/agent/test`
+			cmd := `mv /var/lib/k3s/agent/images /var/lib/k3s/agent/test`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
-			cmd = `echo 'mirror.gcr.io/mysql:latest' | sudo tee /var/lib/rancher/k3s/agent/test/mysql.txt`
+			cmd = `echo 'mirror.gcr.io/mysql:latest' | sudo tee /var/lib/k3s/agent/test/mysql.txt`
 			_, err = tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
-			cmd = `mv /var/lib/rancher/k3s/agent/test /var/lib/rancher/k3s/agent/images`
+			cmd = `mv /var/lib/k3s/agent/test /var/lib/k3s/agent/images`
 			_, err = tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 
@@ -136,7 +136,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 		})
 
 		It("Removes bb.txt file", func() {
-			cmd := `rm /var/lib/rancher/k3s/agent/images/bb.txt`
+			cmd := `rm /var/lib/k3s/agent/images/bb.txt`
 			_, err := tc.Servers[0].RunCmdOnNode(cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed: "+cmd)
 

@@ -105,11 +105,11 @@ func Test_UnitHandlers(t *testing.T) {
 		paths       []pathTest
 	}{
 		{
-			//*** tests with runtime core not ready ***
+			// *** tests with runtime core not ready ***
 			name:        "no runtime core",
 			controlFunc: getCorelessControl,
 			paths: []pathTest{
-				//** paths accessible with node cert or agent token, and specific headers **
+				// ** paths accessible with node cert or agent token, and specific headers **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/serving-kubelet.crt",
@@ -356,7 +356,7 @@ func Test_UnitHandlers(t *testing.T) {
 			},
 		},
 		{
-			//*** tests with runtime core not ready and bind address set ***
+			// *** tests with runtime core not ready and bind address set ***
 			name: "no runtime core with bind-address",
 			controlFunc: func(t *testing.T) (*config.Control, context.CancelFunc) {
 				control, cancel := getCorelessControl(t)
@@ -364,7 +364,7 @@ func Test_UnitHandlers(t *testing.T) {
 				return control, cancel
 			},
 			paths: []pathTest{
-				//** paths accessible with node cert or agent token, and specific headers **
+				// ** paths accessible with node cert or agent token, and specific headers **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/serving-kubelet.crt",
@@ -611,11 +611,11 @@ func Test_UnitHandlers(t *testing.T) {
 			},
 		},
 		{
-			//*** tests with no agent and runtime core not ready ***
+			// *** tests with no agent and runtime core not ready ***
 			name:        "agentless no runtime core",
 			controlFunc: getCorelessAgentlessControl,
 			paths: []pathTest{
-				//** paths accessible with node cert or agent token, and specific headers **
+				// ** paths accessible with node cert or agent token, and specific headers **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/serving-kubelet.crt",
@@ -874,11 +874,11 @@ func Test_UnitHandlers(t *testing.T) {
 			},
 		},
 		{
-			//*** tests with mocked core controllers ***
+			// *** tests with mocked core controllers ***
 			name:        "mocked",
 			controlFunc: getMockedControl,
 			paths: []pathTest{
-				//** paths accessible with node cert or agent token, and specific headers **
+				// ** paths accessible with node cert or agent token, and specific headers **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/serving-kubelet.crt",
@@ -1133,7 +1133,7 @@ func Test_UnitHandlers(t *testing.T) {
 						},
 					),
 				},
-				//** paths accessible with node cert or agent token **
+				// ** paths accessible with node cert or agent token **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/client-kube-proxy.crt",
@@ -1440,7 +1440,7 @@ func Test_UnitHandlers(t *testing.T) {
 						},
 					),
 				},
-				//** paths accessible with node cert **
+				// ** paths accessible with node cert **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/connect",
@@ -1460,7 +1460,7 @@ func Test_UnitHandlers(t *testing.T) {
 						},
 					),
 				},
-				//** paths accessible with server token **
+				// ** paths accessible with server token **
 				{
 					method: http.MethodGet,
 					path:   "/v1-k3s/encrypt/status",
@@ -1535,7 +1535,7 @@ func Test_UnitHandlers(t *testing.T) {
 						},
 					),
 				},
-				//** paths accessible with apiserver cert **
+				// ** paths accessible with apiserver cert **
 				{
 					method: http.MethodConnect,
 					path:   "/",
@@ -1551,7 +1551,7 @@ func Test_UnitHandlers(t *testing.T) {
 						},
 					),
 				},
-				//** paths accessible anonymously **
+				// ** paths accessible anonymously **
 				{
 					method: http.MethodGet,
 					path:   "/ping",
@@ -1634,10 +1634,10 @@ func getCorelessControl(t *testing.T) (*config.Control, context.CancelFunc) {
 	// setting up a whole remotedialer tunnel server here
 	control.Runtime.Tunnel = http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {})
 
-	// Set up node password file in rootless path to avoid having to stage test fixtures in /etc/rancher
+	// Set up node password file in rootless path to avoid having to stage test fixtures in /etc/
 	control.Rootless = true
 	nodePasswordRoot := filepath.Join(path.Dir(control.DataDir), "agent")
-	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", "rancher", "node")
+	nodeConfigPath := filepath.Join(nodePasswordRoot, "etc", version.Program, "node")
 	nodePasswordFile := filepath.Join(nodeConfigPath, "password")
 
 	os.MkdirAll(nodeConfigPath, 0700)

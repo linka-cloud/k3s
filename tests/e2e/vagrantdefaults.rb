@@ -11,14 +11,14 @@ def defaultOSConfigure(vm)
   elsif box.include?("microos")
     # Add stuff here, but we always need to reload at the end
     vm.provision 'reload', run: 'once'
-  end 
+  end
 end
 
 # getInstallType is used to control which version of k3s to install
 # To install a specific version, set release_version to the version number
 # To install a specific commit, set release_version to the commit SHA
-# To install the latest commit from a branch, leave release_version empty 
-# and set release_channel to "commit" and set branch to the branch name 
+# To install the latest commit from a branch, leave release_version empty
+# and set release_channel to "commit" and set branch to the branch name
 def getInstallType(vm, release_version, branch, release_channel='')
   if release_version == "skip"
     install_type = "INSTALL_K3S_SKIP_DOWNLOAD=true"
@@ -30,7 +30,7 @@ def getInstallType(vm, release_version, branch, release_channel='')
     return "INSTALL_K3S_CHANNEL=#{release_channel}"
   else
     jqInstall(vm)
-    scripts_location = Dir.exist?("./scripts") ? "./scripts" : "../scripts" 
+    scripts_location = Dir.exist?("./scripts") ? "./scripts" : "../scripts"
     # Grabs the last 5 commit SHA's from the given branch, then purges any commits that do not have a passing CI build
     # MicroOS requires it not be in a /tmp/ or other root system folder
     vm.provision "Get latest commit", type: "shell", path: scripts_location +"/latest_commit.sh", env: {GH_TOKEN:ENV['GH_TOKEN']}, args: [branch, "/tmp/k3s_commits"]
@@ -42,17 +42,17 @@ def addCoverageDir(vm, role, gocover)
   if gocover.empty?
     return
   end
-  service = role.include?("agent") ? "k3s-agent" : "k3s" 
+  service = role.include?("agent") ? "k3s-agent" : "k3s"
     script = <<~SHELL
       mkdir -p /tmp/k3scov
       echo -e 'GOCOVERDIR=/tmp/k3scov' >> /etc/default/#{service}
       systemctl daemon-reload
     SHELL
-    vm.provision "go coverage", type: "shell", inline: script 
+    vm.provision "go coverage", type: "shell", inline: script
 end
 
 def getHardenedArg(vm, hardened, scripts_location)
-  if hardened.empty? 
+  if hardened.empty?
     return ""
   end
   hardened_arg = <<~HARD
@@ -66,20 +66,20 @@ def getHardenedArg(vm, hardened, scripts_location)
       - 'event-qps=0'
       - "tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
     kube-apiserver-arg:
-      - 'audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log'
-      - 'audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml'
+      - 'audit-log-path=/var/lib/k3s/server/logs/audit.log'
+      - 'audit-policy-file=/var/lib/k3s/server/audit.yaml'
       - 'audit-log-maxage=30'
       - 'audit-log-maxbackup=10'
       - 'audit-log-maxsize=100'
   HARD
- 
+
   if hardened == "psa" || hardened == "true"
     vm.provision "Set kernel parameters", type: "shell", path: scripts_location + "/harden.sh", args: [ "psa" ]
-    hardened_arg += "  - 'admission-control-config-file=/var/lib/rancher/k3s/server/psa.yaml'"
+    hardened_arg += "  - 'admission-control-config-file=/var/lib/k3s/server/psa.yaml'"
   elsif hardened == "psp"
       vm.provision "Set kernel parameters", type: "shell", path: scripts_location + "/harden.sh"
       hardened_arg += "  - 'enable-admission-plugins=NodeRestriction,NamespaceLifecycle,ServiceAccount,PodSecurityPolicy'"
-  else 
+  else
     puts "Invalid E2E_HARDENED option"
     exit 1
   end
@@ -108,7 +108,7 @@ def jqInstall(vm)
   elsif box.include?("microos")
     vm.provision "Install jq", type: "shell", inline: "transactional-update pkg install -y jq"
     vm.provision 'reload', run: 'once'
-  end 
+  end
 end
 
 def dockerInstall(vm)
