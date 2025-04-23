@@ -34,7 +34,7 @@ var (
 	// In addition to using the CRI pinned label, we add our own label to indicate that
 	// the image was pinned by the import process, so that we can clear the pin on subsequent startups.
 	// ref: https://github.com/containerd/containerd/blob/release/1.7/pkg/cri/labels/labels.go
-	k3sPinnedImageLabelKey   = "io.cattle." + version.Program + ".pinned"
+	k3sPinnedImageLabelKey   = "io." + version.Program + ".pinned"
 	k3sPinnedImageLabelValue = "pinned"
 )
 
