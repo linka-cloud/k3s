@@ -26,7 +26,7 @@ fetch-kubeconfig() {(
     local num=${1:-1}
     local name=$(cat $TEST_DIR/servers/$num/metadata/name)
     local port=$(cat $TEST_DIR/servers/$num/metadata/port)
-    docker cp $name:/etc/rancher/k3s/k3s.yaml - 2>/dev/null | tar -xO 2>/dev/null | sed -e "s/:6443/:$port/g" >$TEST_DIR/servers/$num/kubeconfig.yaml
+    docker cp $name:/etc/k3s/k3s.yaml - 2>/dev/null | tar -xO 2>/dev/null | sed -e "s/:6443/:$port/g" >$TEST_DIR/servers/$num/kubeconfig.yaml
 )}
 export -f fetch-kubeconfig
 
@@ -136,7 +136,7 @@ dump-logs() {
         docker logs $name >$node/logs/system.log 2>&1
         if [[ ! -z "$hostname" && $name == k3s-* ]]; then
             docker exec $server kubectl describe node/$hostname >$node/logs/kubectl-describe-node.txt
-            docker cp $name:/var/lib/rancher/k3s/agent/containerd/containerd.log $node/logs/containerd.log 2>/dev/null
+            docker cp $name:/var/lib/k3s/agent/containerd/containerd.log $node/logs/containerd.log 2>/dev/null
             docker exec $name crictl pods >$node/logs/crictl-pods.txt
             docker exec $name crictl ps -a >$node/logs/crictl-ps.txt
             docker exec $name crictl ps -a -o json >$node/metadata/crictl-ps.json
@@ -147,7 +147,7 @@ dump-logs() {
         fi
         if [ "$1" == "skip-output" ]; then
             continue
-        fi 
+        fi
         for log in $node/logs/*.log; do
             echo
             echo "#- Tail: $log"
@@ -159,7 +159,7 @@ dump-logs() {
 
     if [ "$1" == "skip-output" ]; then
         return
-    fi 
+    fi
 
     for txt in $TEST_DIR/logs/*.txt $TEST_DIR/*/*/logs/*.txt; do
         echo
@@ -487,7 +487,7 @@ provision-registry-proxy() {
     echo "Using registry mirror with cluster registries.yaml:"
     cat $registries_yaml
 
-    export REGISTRY_CLUSTER_ARGS="-v $registries_yaml:/etc/rancher/k3s/registries.yaml"
+    export REGISTRY_CLUSTER_ARGS="-v $registries_yaml:/etc/k3s/registries.yaml"
 }
 export -f provision-registry-proxy
 
@@ -586,7 +586,7 @@ test-run-sonobuoy() {
 
     cleanup-test-env
     . ./tests/docker/test-setup-sonobuoy$suffix
-    
+
     if [ "$1" = "parallel" ] || [ "$2" = "parallel" ]; then
         label=PARALLEL \
             logName=e2e-STATUS-${ARCH}-parallel.log \

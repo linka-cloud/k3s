@@ -314,7 +314,7 @@ func FetchNodeExternalIP(nodename string) (string, error) {
 }
 
 func GenKubeConfigFile(serverName string) (string, error) {
-	cmd := fmt.Sprintf("vagrant ssh %s -c \"sudo cat /etc/rancher/k3s/k3s.yaml\"", serverName)
+	cmd := fmt.Sprintf("vagrant ssh %s -c \"sudo cat /etc/k3s/k3s.yaml\"", serverName)
 	kubeConfig, err := RunCommand(cmd)
 	if err != nil {
 		return "", err

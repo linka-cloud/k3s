@@ -84,7 +84,7 @@ var _ = Describe("Verify Custom CA Rotation", Ordered, func() {
 		It("Generates New CA Certificates", func() {
 			cmds := []string{
 				"mkdir -p /opt/rancher/k3s/server",
-				"cp -r /var/lib/rancher/k3s/server/tls /opt/rancher/k3s/server",
+				"cp -r /var/lib/k3s/server/tls /opt/rancher/k3s/server",
 				"DATA_DIR=/opt/rancher/k3s /tmp/generate-custom-ca-certs.sh",
 			}
 			for _, cmd := range cmds {

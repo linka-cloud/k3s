@@ -119,7 +119,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 		It("lists saved s3 snapshot", func() {
 			res, err := e2e.RunCmdOnNode("k3s etcd-snapshot list", serverNodeNames[0])
 			Expect(err).NotTo(HaveOccurred())
-			Expect(res).To(ContainSubstring("file:///var/lib/rancher/k3s/server/db/snapshots/on-demand-server-0"))
+			Expect(res).To(ContainSubstring("file:///var/lib/k3s/server/db/snapshots/on-demand-server-0"))
 			Expect(res).To(ContainSubstring("s3://test-bucket/test-folder/on-demand-server-0"))
 		})
 		It("save 3 more s3 snapshots", func() {

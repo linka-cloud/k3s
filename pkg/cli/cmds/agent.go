@@ -138,7 +138,7 @@ var (
 		Name:        "private-registry",
 		Usage:       "(agent/runtime) Private registry configuration file",
 		Destination: &AgentConfig.PrivateRegistry,
-		Value:       "/etc/rancher/" + version.Program + "/registries.yaml",
+		Value:       "/etc/" + version.Program + "/registries.yaml",
 	}
 	AirgapExtraRegistryFlag = &cli.StringSliceFlag{
 		Name:   "airgap-extra-registry",
@@ -203,13 +203,13 @@ var (
 		Name:        "image-credential-provider-bin-dir",
 		Usage:       "(agent/node) The path to the directory where credential provider plugin binaries are located",
 		Destination: &AgentConfig.ImageCredProvBinDir,
-		Value:       "/var/lib/rancher/credentialprovider/bin",
+		Value:       "/var/lib/credentialprovider/bin",
 	}
 	ImageCredProvConfigFlag = &cli.StringFlag{
 		Name:        "image-credential-provider-config",
 		Usage:       "(agent/node) The path to the credential provider plugin config file",
 		Destination: &AgentConfig.ImageCredProvConfig,
-		Value:       "/var/lib/rancher/credentialprovider/config.yaml",
+		Value:       "/var/lib/credentialprovider/config.yaml",
 	}
 	DisableAgentLBFlag = &cli.BoolFlag{
 		Name:        "disable-apiserver-lb",
@@ -265,7 +265,7 @@ func NewAgentCommand(action func(ctx *cli.Context) error) cli.Command {
 				Name:        "data-dir,d",
 				Usage:       "(agent/data) Folder to hold state",
 				Destination: &AgentConfig.DataDir,
-				Value:       "/var/lib/rancher/" + version.Program + "",
+				Value:       "/var/lib/" + version.Program + "",
 				EnvVar:      version.ProgramUpper + "_DATA_DIR",
 			},
 			NodeNameFlag,

@@ -320,7 +320,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				for _, nodeName := range serverNodeNames {
-					cmd := "test ! -e /var/lib/rancher/k3s/server/tls/dynamic-cert-regenerate"
+					cmd := "test ! -e /var/lib/k3s/server/tls/dynamic-cert-regenerate"
 					_, err := e2e.RunCmdOnNode(cmd, nodeName)
 					Expect(err).NotTo(HaveOccurred(), "Dynamic cert regenerate file not removed on "+nodeName)
 				}
@@ -340,7 +340,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 		})
 
 		It("Validates certificates", func() {
-			const grepCert = "ls -lt /var/lib/rancher/k3s/server/ | grep tls"
+			const grepCert = "ls -lt /var/lib/k3s/server/ | grep tls"
 			// This is a list of files that should be IDENTICAL after certificates are rotated.
 			// Everything else should be changed.
 			var expectResult = []string{
@@ -359,7 +359,7 @@ var _ = Describe("Verify Create", Ordered, func() {
 				Expect(errGrep).NotTo(HaveOccurred(), "TLS dirs could not be listed on "+nodeName)
 				re := regexp.MustCompile("tls-[0-9]+")
 				tls := re.FindAllString(grCert, -1)[0]
-				diff := fmt.Sprintf("diff -sr /var/lib/rancher/k3s/server/tls/ /var/lib/rancher/k3s/server/%s/"+
+				diff := fmt.Sprintf("diff -sr /var/lib/k3s/server/tls/ /var/lib/k3s/server/%s/"+
 					"| grep -i identical | cut -f4 -d ' ' | xargs basename -a \n", tls)
 				result, err := e2e.RunCmdOnNode(diff, nodeName)
 				Expect(err).NotTo(HaveOccurred(), "Certificate diff not created successfully on "+nodeName)

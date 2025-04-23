@@ -13,7 +13,7 @@ sleep 10
 kubectl -n kube-system rollout status deploy/coredns
 kubectl -n kube-system rollout status deploy/local-path-provisioner
 
-cat << EOF > /var/lib/rancher/k3s/server/manifests/rancher.yaml
+cat << EOF > /var/lib/k3s/server/manifests/rancher.yaml
 ---
 apiVersion: v1
 kind: Namespace

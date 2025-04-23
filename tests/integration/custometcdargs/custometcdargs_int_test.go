@@ -39,7 +39,7 @@ var _ = Describe("custom etcd args", Ordered, func() {
 			Eventually(func() (string, error) {
 				var cmd *exec.Cmd
 				grepCmd := "grep"
-				grepCmdArgs := []string{"quota-backend-bytes", "/var/lib/rancher/k3s/server/db/etcd/config"}
+				grepCmdArgs := []string{"quota-backend-bytes", "/var/lib/k3s/server/db/etcd/config"}
 				if testutil.IsRoot() {
 					cmd = exec.Command(grepCmd, grepCmdArgs...)
 				} else {

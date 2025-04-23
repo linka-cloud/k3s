@@ -4,8 +4,8 @@
 # This is used to avoid hitting dockerhub rate limits on E2E runners
 ip_addr=$1
 
-mkdir -p /etc/rancher/k3s/
+mkdir -p /etc/k3s/
 echo "mirrors:
   docker.io:
     endpoint:
-      - \"http://$ip_addr:5000\"" >> /etc/rancher/k3s/registries.yaml
+      - \"http://$ip_addr:5000\"" >> /etc/k3s/registries.yaml

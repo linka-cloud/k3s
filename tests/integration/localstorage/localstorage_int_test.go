@@ -58,7 +58,7 @@ var _ = Describe("local storage", Ordered, func() {
 			}, "10s", "1s").Should(MatchRegexp(`volume-test.+Running`))
 		})
 		It("has proper folder permissions", func() {
-			var k3sStorage = "/var/lib/rancher/k3s/storage"
+			var k3sStorage = "/var/lib/k3s/storage"
 			fileStat, err := os.Stat(k3sStorage)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fmt.Sprintf("%04o", fileStat.Mode().Perm())).To(Equal("0700"))

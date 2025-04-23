@@ -3,7 +3,7 @@ set -e
 umask 027
 
 # Example K3s self-signed CA rotation script.
-# 
+#
 # This script will generate new self-signed root CA certificates, and cross-sign them with the
 # current self-signed root CA certificates. It will then generate new leaf CA certificates
 # signed by the new self-signed/cross-signed root CAs. The resulting cluster CA bundle will
@@ -16,7 +16,7 @@ authorityKeyIdentifier = keyid:always,issuer:always
 basicConstraints=CA:true"
 TIMESTAMP=$(date +%s)
 PRODUCT="${PRODUCT:-k3s}"
-DATA_DIR="${DATA_DIR:-/var/lib/rancher/${PRODUCT}}"
+DATA_DIR="${DATA_DIR:-/var/lib/${PRODUCT}}"
 TEMP_DIR="${DATA_DIR}/server/rotate-ca"
 
 if type -t openssl-3 &>/dev/null; then
@@ -65,7 +65,7 @@ keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
 EOF
 
 for TYPE in client server request-header etcd/peer etcd/server; do
-  if [ ! -f ${DATA_DIR}/server/tls/${TYPE}-ca.crt ]; then 
+  if [ ! -f ${DATA_DIR}/server/tls/${TYPE}-ca.crt ]; then
     echo "Current ${TYPE} CA cert does not exist; cannot continue"
     exit 1
   fi
@@ -117,14 +117,14 @@ for TYPE in client server request-header etcd/peer etcd/server; do
       ${TYPE}-root-old.pem > ${TYPE}-ca.crt
   cat ${TYPE}-root.key >> ${TYPE}-ca.key
 done
-  
+
 ${OPENSSL} genrsa ${OPENSSL_GENRSA_FLAGS:-} -out service.key 2048
 cat ${DATA_DIR}/server/tls/service.key >> service.key
-  
+
 export SERVER_CA_HASH=$(${OPENSSL} x509 -noout -fingerprint -sha256 -in server-ca.pem | awk -F= '{ gsub(/:/, "", $2); print tolower($2) }')
 SERVER_TOKEN=$(awk -F:: '{print "K10" ENVIRON["SERVER_CA_HASH"] FS $2}' ${DATA_DIR}/server/token)
 AGENT_TOKEN=$(awk -F:: '{print "K10" ENVIRON["SERVER_CA_HASH"] FS $2}' ${DATA_DIR}/server/agent-token)
-  
+
 echo
 echo "Cross-signed CA certs and keys now available in ${TEMP_DIR}"
 echo "Updated server token:    ${SERVER_TOKEN}"

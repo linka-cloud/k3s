@@ -37,7 +37,7 @@ func setupMounts(stateDir string) error {
 		{"/var/log", filepath.Join(stateDir, "logs")},
 		{"/var/lib/cni", filepath.Join(stateDir, "cni")},
 		{"/var/lib/kubelet", filepath.Join(stateDir, "kubelet")},
-		{"/etc/rancher", filepath.Join(stateDir, "etc", "rancher")},
+		{"/etc", filepath.Join(stateDir, "etc")},
 		{"/run/" + version.Program + "/containerd", filepath.Join(runDir, version.Program, "containerd")},
 	}
 

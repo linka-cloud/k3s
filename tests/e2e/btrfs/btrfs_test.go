@@ -75,7 +75,7 @@ var _ = Describe("Verify that btrfs based servers work", Ordered, func() {
 			_, _ = e2e.ParsePods(kubeConfigFile, true)
 		})
 		It("Checks that btrfs snapshots exist", func() {
-			cmd := "btrfs subvolume list /var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.btrfs"
+			cmd := "btrfs subvolume list /var/lib/k3s/agent/containerd/io.containerd.snapshotter.v1.btrfs"
 			res, err := e2e.RunCmdOnNode(cmd, serverNodeNames[0])
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).To(MatchRegexp("agent/containerd/io.containerd.snapshotter.v1.btrfs/active/\\d+"))

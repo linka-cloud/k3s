@@ -66,7 +66,7 @@ var _ = Describe("Verify Tailscale Configuration", Ordered, func() {
 
 	It("Change agent's config", func() {
 		nodeIPs, _ := e2e.GetNodeIPs(kubeConfigFile)
-		cmd := fmt.Sprintf("sudo sed -i 's/TAILSCALEIP/%s/g' /etc/rancher/k3s/config.yaml", nodeIPs[0].IPv4)
+		cmd := fmt.Sprintf("sudo sed -i 's/TAILSCALEIP/%s/g' /etc/k3s/config.yaml", nodeIPs[0].IPv4)
 		for _, agent := range agentNodeNames {
 			_, err := e2e.RunCmdOnNode(cmd, agent)
 			Expect(err).NotTo(HaveOccurred())

@@ -19,7 +19,7 @@ cluster-pre-hook() {
     mkdir -p $TEST_DIR/pause/0/metadata
     local testID=$(basename $TEST_DIR)
     local name=$(echo "k3s-pause-0-${testID,,}" | tee $TEST_DIR/pause/0/metadata/name)
-    export SERVER_DOCKER_ARGS="--mount type=volume,src=$name,dst=/var/lib/rancher/k3s/server/tls"
+    export SERVER_DOCKER_ARGS="--mount type=volume,src=$name,dst=/var/lib/k3s/server/tls"
 
     docker run \
         -d --name $name \

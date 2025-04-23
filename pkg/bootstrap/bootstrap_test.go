@@ -20,8 +20,8 @@ func TestObjToMap(t *testing.T) {
 			name: "Minimal Valid",
 			args: args{
 				obj: &config.ControlRuntimeBootstrap{
-					ServerCA:    "/var/lib/rancher/k3s/server/tls/server-ca.crt",
-					ServerCAKey: "/var/lib/rancher/k3s/server/tls/server-ca.key",
+					ServerCA:    "/var/lib/k3s/server/tls/server-ca.crt",
+					ServerCAKey: "/var/lib/k3s/server/tls/server-ca.key",
 				},
 			},
 			wantErr: false,

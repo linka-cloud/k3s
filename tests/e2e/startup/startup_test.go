@@ -45,12 +45,12 @@ func StartK3sCluster(nodes []string, serverYAML string, agentYAML string) error 
 		var resetCmd string
 		var startCmd string
 		if strings.Contains(node, "server") {
-			resetCmd = "head -n 3 /etc/rancher/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/rancher/k3s/config.yaml"
-			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/rancher/k3s/config.yaml", serverYAML)
+			resetCmd = "head -n 3 /etc/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/k3s/config.yaml"
+			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/k3s/config.yaml", serverYAML)
 			startCmd = "systemctl start k3s"
 		} else {
-			resetCmd = "head -n 4 /etc/rancher/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/rancher/k3s/config.yaml"
-			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/rancher/k3s/config.yaml", agentYAML)
+			resetCmd = "head -n 4 /etc/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/k3s/config.yaml"
+			yamlCmd = fmt.Sprintf("echo '%s' >> /etc/k3s/config.yaml", agentYAML)
 			startCmd = "systemctl start k3s-agent"
 		}
 		if _, err := e2e.RunCmdOnNode(resetCmd, node); err != nil {
@@ -72,7 +72,7 @@ func KillK3sCluster(nodes []string) error {
 			return err
 		}
 		if strings.Contains(node, "server") {
-			if _, err := e2e.RunCmdOnNode("rm -rf /var/lib/rancher/k3s/server/db", node); err != nil {
+			if _, err := e2e.RunCmdOnNode("rm -rf /var/lib/k3s/server/db", node); err != nil {
 				return err
 			}
 		}
@@ -258,9 +258,9 @@ var _ = Describe("Various Startup Configurations", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = e2e.RunCmdOnNode("docker save ranchertest/mytestcontainer:latest -o /tmp/mytestcontainer.tar", serverNodeNames[0])
 			Expect(err).NotTo(HaveOccurred())
-			_, err = e2e.RunCmdOnNode("mkdir -p /var/lib/rancher/k3s/agent/images/", serverNodeNames[0])
+			_, err = e2e.RunCmdOnNode("mkdir -p /var/lib/k3s/agent/images/", serverNodeNames[0])
 			Expect(err).NotTo(HaveOccurred())
-			_, err = e2e.RunCmdOnNode("mv /tmp/mytestcontainer.tar /var/lib/rancher/k3s/agent/images/", serverNodeNames[0])
+			_, err = e2e.RunCmdOnNode("mv /tmp/mytestcontainer.tar /var/lib/k3s/agent/images/", serverNodeNames[0])
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("Starts K3s with no issues", func() {

@@ -24,7 +24,7 @@ export K3S_IMAGE_AGENT=${REPO}/${IMAGE_NAME}:${CURRENT_VERSION}${SUFFIX}
 server-pre-hook(){
     local testID=$(basename $TEST_DIR)
     export SERVER_DOCKER_ARGS="\
-        --mount type=volume,src=k3s-server-$1-${testID,,}-rancher,dst=/var/lib/rancher/k3s \
+        --mount type=volume,src=k3s-server-$1-${testID,,}-rancher,dst=/var/lib/k3s \
         --mount type=volume,src=k3s-server-$1-${testID,,}-log,dst=/var/log \
         --mount type=volume,src=k3s-server-$1-${testID,,}-etc,dst=/etc/rancher"
 }
@@ -33,7 +33,7 @@ export -f server-pre-hook
 agent-pre-hook(){
     local testID=$(basename $TEST_DIR)
     export AGENT_DOCKER_ARGS="\
-        --mount type=volume,src=k3s-agent-$1-${testID,,}-rancher,dst=/var/lib/rancher/k3s \
+        --mount type=volume,src=k3s-agent-$1-${testID,,}-rancher,dst=/var/lib/k3s \
         --mount type=volume,src=k3s-agent-$1-${testID,,}-log,dst=/var/log \
         --mount type=volume,src=k3s-agent-$1-${testID,,}-etc,dst=/etc/rancher"
 }

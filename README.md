@@ -121,14 +121,14 @@ To install k3s as a service, run:
 curl -sfL https://get.k3s.io | sh -
 ```
 
-A kubeconfig file is written to `/etc/rancher/k3s/k3s.yaml` and the service is automatically started or restarted.
+A kubeconfig file is written to `/etc/k3s/k3s.yaml` and the service is automatically started or restarted.
 The install script will install K3s and additional utilities, such as `kubectl`, `crictl`, `k3s-killall.sh`, and `k3s-uninstall.sh`, for example:
 
 ```bash
 sudo kubectl get nodes
 ```
 
-`K3S_TOKEN` is created at `/var/lib/rancher/k3s/server/node-token` on your server.
+`K3S_TOKEN` is created at `/var/lib/k3s/server/node-token` on your server.
 To install on worker nodes, pass `K3S_URL` along with
 `K3S_TOKEN` environment variables, for example:
 
@@ -144,11 +144,11 @@ Manual Download
 
 ```bash
 sudo k3s server &
-# Kubeconfig is written to /etc/rancher/k3s/k3s.yaml
+# Kubeconfig is written to /etc/k3s/k3s.yaml
 sudo k3s kubectl get nodes
 
 # On a different node run the below. NODE_TOKEN comes from
-# /var/lib/rancher/k3s/server/node-token on your server
+# /var/lib/k3s/server/node-token on your server
 sudo k3s agent --server https://myserver:6443 --token ${NODE_TOKEN}
 ```
 

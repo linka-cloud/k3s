@@ -149,11 +149,11 @@ var _ = Describe("create a new cluster with kube-* flags", Ordered, func() {
 				"\"--cloud-node,--cloud-node-lifecycle,--secure-port=0\" flags ", func() {
 				Eventually(func() error {
 					match, err := testutil.SearchK3sLog(server, "Running cloud-controller-manager --allocate-node-cidrs=true "+
-						"--authentication-kubeconfig=/var/lib/rancher/k3s/server/cred/cloud-controller.kubeconfig "+
-						"--authorization-kubeconfig=/var/lib/rancher/k3s/server/cred/cloud-controller.kubeconfig --bind-address=127.0.0.1 "+
-						"--cloud-config=/var/lib/rancher/k3s/server/etc/cloud-config.yaml --cloud-provider=k3s --cluster-cidr=10.42.0.0/16 "+
+						"--authentication-kubeconfig=/var/lib/k3s/server/cred/cloud-controller.kubeconfig "+
+						"--authorization-kubeconfig=/var/lib/k3s/server/cred/cloud-controller.kubeconfig --bind-address=127.0.0.1 "+
+						"--cloud-config=/var/lib/k3s/server/etc/cloud-config.yaml --cloud-provider=k3s --cluster-cidr=10.42.0.0/16 "+
 						"--configure-cloud-routes=false --controllers=*,-route,-cloud-node,-cloud-node-lifecycle "+
-						"--feature-gates=CloudDualStackNodeIPs=true --kubeconfig=/var/lib/rancher/k3s/server/cred/cloud-controller.kubeconfig "+
+						"--feature-gates=CloudDualStackNodeIPs=true --kubeconfig=/var/lib/k3s/server/cred/cloud-controller.kubeconfig "+
 						"--leader-elect-resource-name=k3s-cloud-controller-manager --node-status-update-frequency=1m0s --profiling=false --secure-port=0")
 					if err != nil {
 						return err

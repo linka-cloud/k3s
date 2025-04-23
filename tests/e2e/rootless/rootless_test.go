@@ -37,8 +37,8 @@ var (
 func StartK3sCluster(nodes []string, serverYAML string) error {
 	for _, node := range nodes {
 
-		resetCmd := "head -n 3 /etc/rancher/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/rancher/k3s/config.yaml"
-		yamlCmd := fmt.Sprintf("echo '%s' >> /etc/rancher/k3s/config.yaml", serverYAML)
+		resetCmd := "head -n 3 /etc/k3s/config.yaml > /tmp/config.yaml && sudo mv /tmp/config.yaml /etc/k3s/config.yaml"
+		yamlCmd := fmt.Sprintf("echo '%s' >> /etc/k3s/config.yaml", serverYAML)
 		startCmd := "systemctl --user restart k3s-rootless"
 
 		if _, err := e2e.RunCmdOnNode(resetCmd, node); err != nil {
@@ -82,7 +82,7 @@ var _ = BeforeSuite(func() {
 		serverNodeNames, _, err = e2e.CreateCluster(*nodeOS, 1, 0)
 	}
 	Expect(err).NotTo(HaveOccurred(), e2e.GetVagrantLog(err))
-	//Checks if system is using cgroup v2
+	// Checks if system is using cgroup v2
 	_, err = e2e.RunCmdOnNode("cat /sys/fs/cgroup/cgroup.controllers", serverNodeNames[0])
 	Expect(err).NotTo(HaveOccurred(), e2e.GetVagrantLog(err))
 

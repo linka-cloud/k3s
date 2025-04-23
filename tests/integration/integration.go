@@ -305,7 +305,7 @@ func K3sKillServer(server *K3sServer) error {
 	if _, err = server.cmd.Process.Wait(); err != nil {
 		return errors.Wrap(err, "failed to wait for k3s process exit")
 	}
-	//Unmount all the associated filesystems
+	// Unmount all the associated filesystems
 	unmountFolder("/run/k3s")
 	unmountFolder("/run/netns/cni-")
 
@@ -334,7 +334,7 @@ func K3sCleanup(k3sTestLock int, dataDir string) error {
 		netlink.LinkDel(flannelV6)
 	}
 	if dataDir == "" {
-		dataDir = "/var/lib/rancher/k3s"
+		dataDir = "/var/lib/k3s"
 	}
 	if err := os.RemoveAll(dataDir); err != nil {
 		return err
@@ -424,7 +424,7 @@ func unmountFolder(folder string) error {
 }
 
 func k8sClient() (*kubernetes.Clientset, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", "/etc/rancher/k3s/k3s.yaml")
+	config, err := clientcmd.BuildConfigFromFlags("", "/etc/k3s/k3s.yaml")
 	if err != nil {
 		return nil, err
 	}

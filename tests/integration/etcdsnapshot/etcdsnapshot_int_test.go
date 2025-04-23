@@ -49,7 +49,7 @@ var _ = Describe("etcd snapshots", Ordered, func() {
 		})
 		It("list snapshots", func() {
 			Expect(testutil.K3sCmd("etcd-snapshot", "ls")).
-				To(MatchRegexp(`:///var/lib/rancher/k3s/server/db/snapshots/on-demand`))
+				To(MatchRegexp(`:///var/lib/k3s/server/db/snapshots/on-demand`))
 		})
 		It("deletes a snapshot", func() {
 			lsResult, err := testutil.K3sCmd("etcd-snapshot", "ls")
@@ -91,7 +91,7 @@ var _ = Describe("etcd snapshots", Ordered, func() {
 		It("lists all 3 snapshots", func() {
 			lsResult, err := testutil.K3sCmd("etcd-snapshot", "ls")
 			Expect(err).ToNot(HaveOccurred())
-			reg, err := regexp.Compile(`(?m):///var/lib/rancher/k3s/server/db/snapshots/PRUNE_TEST`)
+			reg, err := regexp.Compile(`(?m):///var/lib/k3s/server/db/snapshots/PRUNE_TEST`)
 			Expect(err).ToNot(HaveOccurred())
 			sepLines := reg.FindAllString(lsResult, -1)
 			Expect(sepLines).To(HaveLen(3))
@@ -101,7 +101,7 @@ var _ = Describe("etcd snapshots", Ordered, func() {
 				To(ContainSubstring(" deleted."))
 			lsResult, err := testutil.K3sCmd("etcd-snapshot", "ls")
 			Expect(err).ToNot(HaveOccurred())
-			reg, err := regexp.Compile(`(?m):///var/lib/rancher/k3s/server/db/snapshots/PRUNE_TEST`)
+			reg, err := regexp.Compile(`(?m):///var/lib/k3s/server/db/snapshots/PRUNE_TEST`)
 			Expect(err).ToNot(HaveOccurred())
 			sepLines := reg.FindAllString(lsResult, -1)
 			Expect(sepLines).To(HaveLen(2))
