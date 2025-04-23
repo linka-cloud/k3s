@@ -171,7 +171,7 @@ var _ = Describe("Verify Secrets Encryption Rotation", Ordered, func() {
 	})
 	Context("Switching to Secretbox Provider", func() {
 		It("Append secretbox provider to config", func() {
-			cmd := "echo 'secrets-encryption-provider: secretbox' >> /etc/rancher/k3s/config.yaml"
+			cmd := "echo 'secrets-encryption-provider: secretbox' >> /etc/k3s/config.yaml"
 			for _, node := range tc.Servers {
 				Expect(node.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
 			}

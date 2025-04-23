@@ -39,8 +39,8 @@ kubelet-arg:
   - "tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
 kube-apiserver-arg:
   - 'admission-control-config-file=/tmp/cluster-level-pss.yaml'
-  - 'audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log'
-  - 'audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml'
+  - 'audit-log-path=/var/lib/k3s/server/logs/audit.log'
+  - 'audit-policy-file=/var/lib/k3s/server/audit.yaml'
   - 'audit-log-maxage=30'
   - 'audit-log-maxbackup=10'
   - 'audit-log-maxsize=100'
@@ -57,10 +57,10 @@ kubelet-arg:
 				cmd := "docker cp ./cluster-level-pss.yaml " + server.Name + ":/tmp/cluster-level-pss.yaml"
 				Expect(tests.RunCommand(cmd)).Error().NotTo(HaveOccurred())
 
-				cmd = "mkdir -p /var/lib/rancher/k3s/server/logs"
+				cmd = "mkdir -p /var/lib/k3s/server/logs"
 				Expect(server.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
 				auditYaml := "apiVersion: audit.k8s.io/v1\nkind: Policy\nrules:\n- level: Metadata"
-				cmd = fmt.Sprintf("echo -e '%s' > /var/lib/rancher/k3s/server/audit.yaml", auditYaml)
+				cmd = fmt.Sprintf("echo -e '%s' > /var/lib/k3s/server/audit.yaml", auditYaml)
 				Expect(server.RunCmdOnNode(cmd)).Error().NotTo(HaveOccurred())
 				Expect(server.RunCmdOnNode("systemctl start k3s")).Error().NotTo(HaveOccurred())
 			}

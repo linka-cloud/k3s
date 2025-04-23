@@ -21,7 +21,7 @@ Tailscale requires three steps before running the test:
 
 ### The cluster does not start correctly
 
-Please verify that the tailscale key was correctly passed to the config. To verify this, check the config in the server/agent in the file /etc/rancher/k3s/config.yaml
+Please verify that the tailscale key was correctly passed to the config. To verify this, check the config in the server/agent in the file /etc/k3s/config.yaml
 
 
 ### The verification on the routing fails

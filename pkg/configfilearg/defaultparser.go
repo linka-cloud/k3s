@@ -14,7 +14,7 @@ var DefaultParser = &Parser{
 	After:         []string{"server", "agent", "etcd-snapshot:1"},
 	ConfigFlags:   []string{"--config", "-c"},
 	EnvName:       version.ProgramUpper + "_CONFIG_FILE",
-	DefaultConfig: "/etc/rancher/" + version.Program + "/config.yaml",
+	DefaultConfig: "/etc/" + version.Program + "/config.yaml",
 	ValidFlags:    map[string][]cli.Flag{"server": cmds.ServerFlags},
 }
 
@@ -42,7 +42,7 @@ func MustFindString(args []string, target string, commandsWithoutOverride ...str
 	parser := &Parser{
 		OverrideFlags: overrideFlags,
 		EnvName:       version.ProgramUpper + "_CONFIG_FILE",
-		DefaultConfig: "/etc/rancher/" + version.Program + "/config.yaml",
+		DefaultConfig: "/etc/" + version.Program + "/config.yaml",
 	}
 	result, err := parser.FindString(args, target)
 	if err != nil {

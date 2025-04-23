@@ -191,13 +191,13 @@ func (config *TestConfig) ProvisionServers(numOfServers int) error {
 			}
 
 			// Create empty config.yaml for later use
-			cmd = "mkdir -p /etc/rancher/k3s; touch /etc/rancher/k3s/config.yaml"
+			cmd = "mkdir -p /etc/k3s; touch /etc/k3s/config.yaml"
 			if out, err := newServer.RunCmdOnNode(cmd); err != nil {
 				return fmt.Errorf("failed to create empty config.yaml: %s: %v", out, err)
 			}
 			// Write the raw YAML directly to the config.yaml on the systemd-node container
 			if config.ServerYaml != "" {
-				cmd = fmt.Sprintf("echo '%s' > /etc/rancher/k3s/config.yaml", config.ServerYaml)
+				cmd = fmt.Sprintf("echo '%s' > /etc/k3s/config.yaml", config.ServerYaml)
 				if out, err := newServer.RunCmdOnNode(cmd); err != nil {
 					return fmt.Errorf("failed to write server yaml: %s: %v", out, err)
 				}
@@ -217,7 +217,7 @@ func (config *TestConfig) ProvisionServers(numOfServers int) error {
 				if err := os.WriteFile(filepath.Join(config.TestDir, fmt.Sprintf("server-%d.yaml", i)), []byte(config.ServerYaml), 0644); err != nil {
 					return fmt.Errorf("failed to write server yaml: %v", err)
 				}
-				yamlMount = fmt.Sprintf("--mount type=bind,src=%s,dst=/etc/rancher/k3s/config.yaml", filepath.Join(config.TestDir, fmt.Sprintf("server-%d.yaml", i)))
+				yamlMount = fmt.Sprintf("--mount type=bind,src=%s,dst=/etc/k3s/config.yaml", filepath.Join(config.TestDir, fmt.Sprintf("server-%d.yaml", i)))
 			}
 
 			// Assemble all the Docker args
@@ -357,13 +357,13 @@ func (config *TestConfig) ProvisionAgents(numOfAgents int) error {
 				time.Sleep(5 * time.Second)
 
 				// Create empty config.yaml for later use
-				cmd := "mkdir -p /etc/rancher/k3s; touch /etc/rancher/k3s/config.yaml"
+				cmd := "mkdir -p /etc/k3s; touch /etc/k3s/config.yaml"
 				if out, err := newAgent.RunCmdOnNode(cmd); err != nil {
 					return fmt.Errorf("failed to create empty config.yaml: %s: %v", out, err)
 				}
 				// Write the raw YAML directly to the config.yaml on the systemd-node container
 				if config.AgentYaml != "" {
-					cmd = fmt.Sprintf("echo '%s' > /etc/rancher/k3s/config.yaml", config.AgentYaml)
+					cmd = fmt.Sprintf("echo '%s' > /etc/k3s/config.yaml", config.AgentYaml)
 					if out, err := newAgent.RunCmdOnNode(cmd); err != nil {
 						return fmt.Errorf("failed to write server yaml: %s: %v", out, err)
 					}
@@ -536,7 +536,7 @@ func (config *TestConfig) CopyAndModifyKubeconfig() error {
 	var err error
 	var cmd string
 	for i := 1; i <= 2; i++ {
-		cmd = fmt.Sprintf("docker cp %s:/etc/rancher/k3s/k3s.yaml %s/kubeconfig.yaml", config.Servers[serverID].Name, config.TestDir)
+		cmd = fmt.Sprintf("docker cp %s:/etc/k3s/k3s.yaml %s/kubeconfig.yaml", config.Servers[serverID].Name, config.TestDir)
 		_, err = tests.RunCommand(cmd)
 		if err != nil {
 			fmt.Printf("Failed to copy kubeconfig, attempt %d: %v\n", i, err)
