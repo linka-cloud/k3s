@@ -11,11 +11,11 @@ DIAGCMD=${1:-gather-upload-confirm}
 DIAGPROG=${DIAGPROG:-k3s}
 BUCKET_NAME=${BUCKET_NAME:-"$DIAGPROG-diagnostic-logs"}
 
-bin=/var/lib/rancher/$DIAGPROG/data/current/bin/
+bin=/var/lib/$DIAGPROG/data/current/bin/
 if [ -d $bin ]; then
   export PATH=$PATH:$bin:$bin/aux
 else
-  for bin in /var/lib/rancher/k3s/data/**/bin/; do
+  for bin in /var/lib/k3s/data/**/bin/; do
     [ -d $bin ] && export PATH=$PATH:$bin:$bin/aux
   done
 fi
@@ -160,7 +160,7 @@ log_prog() {
       run_cmd journalctl --unit "$unit" --no-pager
     done
   fi
-  copy "/var/lib/rancher/$DIAGPROG/agent/containerd/containerd.log"
+  copy "/var/lib/$DIAGPROG/agent/containerd/containerd.log"
 
   # log cert openssl data?
 }
@@ -170,7 +170,7 @@ log_kube() {
 
   copy /var/log/pods # copies all pod logs
   run_cmd command -v kubectl
-  run_cmd kubectl version 
+  run_cmd kubectl version
   run_cmd kubectl config get-contexts
   run_cmd kubectl config current-context
   run_cmd kubectl cluster-info dump

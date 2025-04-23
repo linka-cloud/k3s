@@ -91,7 +91,7 @@ var (
 	DataDirFlag  = &cli.StringFlag{
 		Name:        "data-dir",
 		Aliases:     []string{"d"},
-		Usage:       "(data) Folder to hold state default /var/lib/rancher/" + version.Program + " or ${HOME}/.rancher/" + version.Program + " if not root",
+		Usage:       "(data) Folder to hold state default /var/lib/" + version.Program + " or ${HOME}/.rancher/" + version.Program + " if not root",
 		Destination: &ServerConfig.DataDir,
 		EnvVars:     []string{version.ProgramUpper + "_DATA_DIR"},
 	}

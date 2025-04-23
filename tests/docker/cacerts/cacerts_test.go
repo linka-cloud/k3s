@@ -42,7 +42,7 @@ var _ = Describe("CA Certs Tests", Ordered, func() {
 
 			testID = filepath.Base(config.TestDir)
 			pauseName := fmt.Sprintf("k3s-pause-%s", strings.ToLower(testID))
-			tlsMount := fmt.Sprintf("--mount type=volume,src=%s,dst=/var/lib/rancher/k3s/server/tls", pauseName)
+			tlsMount := fmt.Sprintf("--mount type=volume,src=%s,dst=/var/lib/k3s/server/tls", pauseName)
 			cmd := fmt.Sprintf("docker run -d --name %s --hostname %s %s rancher/mirrored-pause:3.6",
 				pauseName, pauseName, tlsMount)
 			_, err = tester.RunCommand(cmd)
@@ -75,7 +75,7 @@ var _ = Describe("CA Certs Tests", Ordered, func() {
 			// Add your custom CA certs verification logic here
 			// Example: Check if the custom CA certs are present in the server container
 			for _, server := range config.Servers {
-				cmd := fmt.Sprintf("docker exec %s ls /var/lib/rancher/k3s/server/tls", server.Name)
+				cmd := fmt.Sprintf("docker exec %s ls /var/lib/k3s/server/tls", server.Name)
 				output, err := tester.RunCommand(cmd)
 				Expect(err).NotTo(HaveOccurred(), "failed to list custom CA certs: %v", err)
 				Expect(output).To(ContainSubstring("ca.crt"))

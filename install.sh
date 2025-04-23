@@ -255,9 +255,9 @@ setup_env() {
         FILE_K3S_SERVICE=${SYSTEMD_DIR}/${SERVICE_K3S}
         FILE_K3S_ENV=${SYSTEMD_DIR}/${SERVICE_K3S}.env
     elif [ "${HAS_OPENRC}" = true ]; then
-        $SUDO mkdir -p /etc/rancher/k3s
+        $SUDO mkdir -p /etc/k3s
         FILE_K3S_SERVICE=/etc/init.d/${SYSTEM_NAME}
-        FILE_K3S_ENV=/etc/rancher/k3s/${SYSTEM_NAME}.env
+        FILE_K3S_ENV=/etc/k3s/${SYSTEM_NAME}.env
     fi
 
     # --- get hash of config & exec for currently installed k3s ---
@@ -653,15 +653,15 @@ install_selinux_rpm() {
             repodir=/etc/zypp/repos.d
         fi
         set +o noglob
-        $SUDO rm -f ${repodir}/rancher-k3s-common*.repo
+        $SUDO rm -f ${repodir}/k3s-common*.repo
         set -o noglob
         if [ -r /etc/redhat-release ] && [ "${3}" = "el7" ]; then
             $SUDO yum install -y yum-utils
             $SUDO yum-config-manager --enable rhel-7-server-extras-rpms
         fi
-        $SUDO tee ${repodir}/rancher-k3s-common.repo >/dev/null << EOF
-[rancher-k3s-common-${2}]
-name=Rancher K3s Common (${2})
+        $SUDO tee ${repodir}/k3s-common.repo >/dev/null << EOF
+[k3s-common-${2}]
+name=K3s Common (${2})
 baseurl=https://${1}/k3s/${2}/common/${4}/noarch
 enabled=1
 gpgcheck=1
@@ -777,7 +777,7 @@ create_killall() {
 #!/bin/sh
 [ $(id -u) -eq 0 ] || exec sudo --preserve-env=K3S_DATA_DIR $0 $@
 
-K3S_DATA_DIR=${K3S_DATA_DIR:-/var/lib/rancher/k3s}
+K3S_DATA_DIR=${K3S_DATA_DIR:-/var/lib/k3s}
 
 for bin in ${K3S_DATA_DIR}/data/**/bin/; do
     [ -d $bin ] && export PATH=$PATH:$bin:$bin/aux
@@ -879,7 +879,7 @@ create_uninstall() {
 set -x
 [ \$(id -u) -eq 0 ] || exec sudo --preserve-env=K3S_DATA_DIR \$0 \$@
 
-K3S_DATA_DIR=\${K3S_DATA_DIR:-/var/lib/rancher/k3s}
+K3S_DATA_DIR=\${K3S_DATA_DIR:-/var/lib/k3s}
 
 ${KILLALL_K3S_SH}
 
@@ -930,7 +930,7 @@ clean_mounted_directory() {
      done
 }
 
-rm -rf /etc/rancher/k3s
+rm -rf /etc/k3s
 rm -rf /run/k3s
 rm -rf /run/flannel
 clean_mounted_directory \${K3S_DATA_DIR}
@@ -940,17 +940,17 @@ rm -f ${KILLALL_K3S_SH}
 
 if type yum >/dev/null 2>&1; then
     yum remove -y k3s-selinux
-    rm -f /etc/yum.repos.d/rancher-k3s-common*.repo
+    rm -f /etc/yum.repos.d/k3s-common*.repo
 elif type rpm-ostree >/dev/null 2>&1; then
     rpm-ostree uninstall k3s-selinux
-    rm -f /etc/yum.repos.d/rancher-k3s-common*.repo
+    rm -f /etc/yum.repos.d/k3s-common*.repo
 elif type zypper >/dev/null 2>&1; then
     uninstall_cmd="zypper remove -y k3s-selinux"
     if [ "\${TRANSACTIONAL_UPDATE=false}" != "true" ] && [ -x /usr/sbin/transactional-update ]; then
         uninstall_cmd="transactional-update --no-selfupdate -d run \$uninstall_cmd"
     fi
     $SUDO \$uninstall_cmd
-    rm -f /etc/zypp/repos.d/rancher-k3s-common*.repo
+    rm -f /etc/zypp/repos.d/k3s-common*.repo
 fi
 EOF
     $SUDO chmod 755 ${UNINSTALL_K3S_SH}

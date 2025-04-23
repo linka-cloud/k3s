@@ -139,7 +139,7 @@ var (
 		Name:        "private-registry",
 		Usage:       "(agent/runtime) Private registry configuration file",
 		Destination: &AgentConfig.PrivateRegistry,
-		Value:       "/etc/rancher/" + version.Program + "/registries.yaml",
+		Value:       "/etc//" + version.Program + "/registries.yaml",
 	}
 	AirgapExtraRegistryFlag = &cli.StringSliceFlag{
 		Name:   "airgap-extra-registry",
@@ -273,7 +273,7 @@ func NewAgentCommand(action func(ctx *cli.Context) error) *cli.Command {
 				Aliases:     []string{"d"},
 				Usage:       "(agent/data) Folder to hold state",
 				Destination: &AgentConfig.DataDir,
-				Value:       "/var/lib/rancher/" + version.Program + "",
+				Value:       "/var/lib/" + version.Program + "",
 				EnvVars:     []string{version.ProgramUpper + "_DATA_DIR"},
 			},
 			NodeNameFlag,
