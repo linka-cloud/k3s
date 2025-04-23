@@ -29,7 +29,7 @@ import (
 var existingServer = "False"
 
 const lockFile = "/tmp/k3s-test.lock"
-const DefaultConfig = "/etc/rancher/k3s/k3s.yaml"
+const DefaultConfig = "/etc/k3s/k3s.yaml"
 
 type K3sServer struct {
 	cmd *exec.Cmd
@@ -279,7 +279,7 @@ func K3sCleanup(k3sTestLock int, dataDir string) error {
 		netlink.LinkDel(flannelV6)
 	}
 	if dataDir == "" {
-		dataDir = "/var/lib/rancher/k3s"
+		dataDir = "/var/lib/k3s"
 	}
 	if err := os.RemoveAll(dataDir); err != nil {
 		return err

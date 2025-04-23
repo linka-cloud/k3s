@@ -57,7 +57,7 @@ set -e
 #
 #   - INSTALL_K3S_CONFIG_DIR
 #     Directory to install environment and flag files to, or use
-#     /etc/rancher/k3s as the default
+#     /etc/k3s as the default
 #
 #   - INSTALL_K3S_EXEC or script arguments
 #     Command with flags to use for launching k3s in the systemd service, if
@@ -220,7 +220,7 @@ setup_env() {
 
     # --- use binary install directory if defined or create default ---
     BIN_DIR=${INSTALL_K3S_BIN_DIR:-/usr/local/bin}
-    DATA_DIR=/var/lib/rancher/k3s
+    DATA_DIR=/var/lib/k3s
 
     # --- set related files from system name ---
     UNINSTALL_K3S_SH=${UNINSTALL_K3S_SH:-${BIN_DIR}/k3s-uninstall.sh}
@@ -239,7 +239,7 @@ setup_env() {
     fi
 
     # --- use service or environment location depending on systemd/openrc ---
-    CONFIG_DIR=${INSTALL_K3S_CONFIG_DIR:-/etc/rancher/k3s}
+    CONFIG_DIR=${INSTALL_K3S_CONFIG_DIR:-/etc/k3s}
     if [ "${HAS_SYSTEMD}" = true ]; then
         SERVICE_FILE=${SERVICE_NAME}.service
         SERVICE_DIR=${SERVICE_DIR:-/etc/systemd/system}
@@ -505,7 +505,7 @@ create_killall() {
 #!/bin/sh
 [ $(id -u) -eq 0 ] || exec sudo $0 $@
 
-for bin in /var/lib/rancher/k3s/data/**/bin/; do
+for bin in /var/lib/k3s/data/**/bin/; do
     [ -d $bin ] && export PATH=$PATH:$bin:$bin/aux
 done
 
@@ -575,7 +575,7 @@ do_unmount() {
 }
 
 do_unmount '/run/k3s'
-do_unmount '/var/lib/rancher/k3s'
+do_unmount '/var/lib/k3s'
 do_unmount '/var/lib/kubelet/pods'
 do_unmount '/run/netns/cni-'
 

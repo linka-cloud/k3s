@@ -55,13 +55,13 @@ var _ = Describe("Upgrade Tests", Ordered, func() {
 			testID := filepath.Base(tc.TestDir)
 			Expect(err).NotTo(HaveOccurred())
 			for i := 0; i < numServers; i++ {
-				m1 := fmt.Sprintf("--mount type=volume,src=server-%d-%s-rancher,dst=/var/lib/rancher/k3s", i, testID)
+				m1 := fmt.Sprintf("--mount type=volume,src=server-%d-%s-rancher,dst=/var/lib/k3s", i, testID)
 				m2 := fmt.Sprintf("--mount type=volume,src=server-%d-%s-log,dst=/var/log", i, testID)
 				m3 := fmt.Sprintf("--mount type=volume,src=server-%d-%s-etc,dst=/etc/rancher", i, testID)
 				Expect(os.Setenv(fmt.Sprintf("SERVER_%d_DOCKER_ARGS", i), fmt.Sprintf("%s %s %s", m1, m2, m3))).To(Succeed())
 			}
 			for i := 0; i < numAgents; i++ {
-				m1 := fmt.Sprintf("--mount type=volume,src=agent-%d-%s-rancher,dst=/var/lib/rancher/k3s", i, testID)
+				m1 := fmt.Sprintf("--mount type=volume,src=agent-%d-%s-rancher,dst=/var/lib/k3s", i, testID)
 				m2 := fmt.Sprintf("--mount type=volume,src=agent-%d-%s-log,dst=/var/log", i, testID)
 				m3 := fmt.Sprintf("--mount type=volume,src=agent-%d-%s-etc,dst=/etc/rancher", i, testID)
 				Expect(os.Setenv(fmt.Sprintf("AGENT_%d_DOCKER_ARGS", i), fmt.Sprintf("%s %s %s", m1, m2, m3))).To(Succeed())
