@@ -1,6 +1,9 @@
 ARG GOLANG=golang:1.22.8-alpine3.19
+ARG PROG=k3s
 FROM ${GOLANG} as infra
 
+ARG PROG
+ENV PROG=${PROG}
 ARG http_proxy=$http_proxy
 ARG https_proxy=$https_proxy
 ARG no_proxy=$no_proxy
@@ -36,6 +39,8 @@ WORKDIR ${SRC_DIR}/
 
 FROM infra as build
 
+ARG PROG
+ENV PROG=${PROG}
 ARG SKIP_VALIDATE
 
 COPY ./scripts/ ./scripts

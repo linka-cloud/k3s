@@ -183,7 +183,7 @@ func externalCLI(cli, dataDir string, args []string) error {
 func internalCLIAction(cmd, dataDir string, args []string) func(ctx *cli.Context) error {
 	return func(ctx *cli.Context) error {
 		// We don't want the Info logs seen when printing the autocomplete script
-		if cmd == "k3s-completion" {
+		if cmd == version.Program+"-completion" {
 			logrus.SetLevel(logrus.ErrorLevel)
 		}
 		return stageAndRunCLI(ctx, cmd, dataDir, args)
@@ -247,7 +247,7 @@ func getAssetAndDir(dataDir string) (string, string) {
 func extract(dataDir string) (string, error) {
 	// check if content already exists in requested data-dir
 	asset, dir := getAssetAndDir(dataDir)
-	if _, err := os.Stat(filepath.Join(dir, "bin", "k3s"+programPostfix)); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, "bin", version.Program+programPostfix)); err == nil {
 		return dir, nil
 	}
 
@@ -256,7 +256,7 @@ func extract(dataDir string) (string, error) {
 	// dir if the assets already exist in the default path.
 	if dataDir != datadir.DefaultDataDir {
 		_, defaultDir := getAssetAndDir(datadir.DefaultDataDir)
-		if _, err := os.Stat(filepath.Join(defaultDir, "bin", "k3s"+programPostfix)); err == nil {
+		if _, err := os.Stat(filepath.Join(defaultDir, "bin", version.Program+programPostfix)); err == nil {
 			return defaultDir, nil
 		}
 	}

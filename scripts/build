@@ -19,6 +19,7 @@ PKG_ETCD="go.etcd.io/etcd"
 buildDate=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 VERSIONFLAGS="
+    -X ${PKG}/pkg/version.Program=${PROG}
     -X ${PKG}/pkg/version.Version=${VERSION}
     -X ${PKG}/pkg/version.GitCommit=${COMMIT:0:8}
     -X ${PKG}/pkg/version.UpstreamGolang=${VERSION_GOLANG}
@@ -95,14 +96,14 @@ if [ ${ARCH} = s390x ]; then
     export GOARCH="s390x"
 fi
 
-k3s_binaries=(
-    "bin/k3s-agent"
-    "bin/k3s-server"
-    "bin/k3s-token"
-    "bin/k3s-etcd-snapshot"
-    "bin/k3s-secrets-encrypt"
-    "bin/k3s-certificate"
-    "bin/k3s-completion"
+binaries=(
+    "bin/${PROG}-agent"
+    "bin/${PROG}-server"
+    "bin/${PROG}-token"
+    "bin/${PROG}-etcd-snapshot"
+    "bin/${PROG}-secrets-encrypt"
+    "bin/${PROG}-certificate"
+    "bin/${PROG}-completion"
     "bin/kubectl"
     "bin/containerd"
     "bin/crictl"
@@ -117,7 +118,7 @@ containerd_binaries=(
     "bin/runhcs"
 )
 
-for i in "${k3s_binaries[@]}"; do
+for i in "${binaries[@]}"; do
     if [ -f "$i${BINARY_POSTFIX}" ]; then
         echo "Removing $i${BINARY_POSTFIX}"
         rm -f "$i${BINARY_POSTFIX}"
@@ -153,11 +154,11 @@ if [ ! -x ${INSTALLBIN}/cni${BINARY_POSTFIX} ]; then
 )
 fi
 
-echo Building k3s
-CGO_ENABLED=1 "${GO}" build $BLDFLAGS -tags "$TAGS" -buildvcs=false -gcflags="all=${GCFLAGS}" -ldflags "$VERSIONFLAGS $LDFLAGS $STATIC" -o bin/k3s${BINARY_POSTFIX} ./cmd/server
+echo Building ${PROG}
+CGO_ENABLED=1 "${GO}" build $BLDFLAGS -tags "$TAGS" -buildvcs=false -gcflags="all=${GCFLAGS}" -ldflags "$VERSIONFLAGS $LDFLAGS $STATIC" -o bin/${PROG}${BINARY_POSTFIX} ./cmd/server
 
-for i in "${k3s_binaries[@]}"; do
-    ln -s "k3s${BINARY_POSTFIX}" "$i${BINARY_POSTFIX}"
+for i in "${binaries[@]}"; do
+    ln -s "${PROG}${BINARY_POSTFIX}" "$i${BINARY_POSTFIX}"
 done
 
 export GOPATH=$(pwd)/build
