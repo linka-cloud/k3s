@@ -11,13 +11,14 @@ import (
 	"github.com/k3s-io/k3s/pkg/agent/containerd"
 	"github.com/k3s-io/k3s/pkg/cli/cmds"
 	"github.com/k3s-io/k3s/pkg/daemons/config"
+	"github.com/k3s-io/k3s/pkg/version"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 // applyContainerdOSSpecificConfig sets linux-specific containerd config
 func applyContainerdOSSpecificConfig(nodeConfig *config.Node) error {
-	nodeConfig.Containerd.State = "/run/k3s/containerd"
+	nodeConfig.Containerd.State = "/run/" + version.Program + "/containerd"
 	nodeConfig.Containerd.Address = filepath.Join(nodeConfig.Containerd.State, "containerd.sock")
 
 	// validate that the selected snapshotter supports the filesystem at the root path.
