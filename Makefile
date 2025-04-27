@@ -49,6 +49,7 @@ local-validate:
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg="SKIP_VALIDATE=$(SKIP_VALIDATE)" \
 		--build-arg="DEBUG=$(DEBUG)" \
+		--build-arg=PROG \
 		--progress=plain \
 		-f Dockerfile.local --target=validate .
 
@@ -64,6 +65,7 @@ local-binary:
 		--build-arg="GOCOVER=$(GOCOVER)" \
 		--build-arg="GOOS=$(GOOS)" \
 		--build-arg="DEBUG=$(DEBUG)" \
+		--build-arg=PROG \
 		-f Dockerfile.local --target=result --output=. .
 
 .PHONY: local-image
@@ -72,7 +74,7 @@ local-image: local-binary
 	./scripts/package-image
 
 .PHONY: local-airgap
-local-airgap: 
+local-airgap:
 	@echo "INFO: Building K3s airgap tarball..."
 	./scripts/package-airgap
 

@@ -1,5 +1,14 @@
 ARG GOLANG=golang:1.24.9-alpine3.22
-FROM ${GOLANG} AS infra
+FROM ${GOLANG} as infra
+
+ARG PROG
+ENV PROG=${PROG}
+ARG http_proxy=$http_proxy
+ARG https_proxy=$https_proxy
+ARG no_proxy=$no_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+ENV no_proxy=$no_proxy
 
 RUN apk -U --no-cache add bash git gcc musl-dev docker vim less file curl wget ca-certificates jq linux-headers \
     zlib-dev tar zip squashfs-tools npm coreutils openssl-dev libffi-dev libseccomp libseccomp-dev \
@@ -32,6 +41,8 @@ ARG COMMIT
 ARG DIRTY
 ARG GOOS
 ENV NO_DAPPER=true
+ARG PROG
+ENV PROG=${PROG}
 # Used by both build and validate stages, better caching if we do this in a separate stage
 COPY ./scripts/ ./scripts
 COPY ./go.mod ./go.sum ./main.go ./
