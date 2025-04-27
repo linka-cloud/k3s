@@ -4,6 +4,10 @@ GO=${GO-go}
 ARCH=${ARCH:-$("${GO}" env GOARCH)}
 OS=${OS:-$("${GO}" env GOOS)}
 SUFFIX="-${ARCH}"
+GIT_TAG=$DRONE_TAG
+TREE_STATE=clean
+COMMIT=$DRONE_COMMIT
+PROG=${PROG:-k3s}
 
 if [ -z "$NO_DAPPER" ]; then
     . ./scripts/git_version.sh
@@ -69,7 +73,7 @@ if [[ -n "$GIT_TAG" ]]; then
     fi
     VERSION=$GIT_TAG
 else
-    VERSION="$VERSION_K8S+k3s-${COMMIT:0:8}$DIRTY"
+    VERSION="$VERSION_K8S+${PROG}-${COMMIT:0:8}$DIRTY"
 fi
 VERSION_TAG="$(sed -e 's/+/-/g' <<< "$VERSION")"
 
