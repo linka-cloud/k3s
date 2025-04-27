@@ -24,7 +24,7 @@ elif [ ${ARCH} = s390x ]; then
     BIN_SUFFIX="-s390x"
 fi
 
-CMD_NAME="dist/artifacts/k3s${BIN_SUFFIX}${BINARY_POSTFIX}"
+CMD_NAME="dist/artifacts/${PROG}${BIN_SUFFIX}${BINARY_POSTFIX}"
 SIZE=$(stat -c '%s' ${CMD_NAME})
 
 if [ -n "${DEBUG}" ]; then
@@ -33,9 +33,9 @@ if [ -n "${DEBUG}" ]; then
 fi
 
 if [ ${SIZE} -gt ${MAX_BINARY_SIZE} ]; then
-  echo "k3s binary ${CMD_NAME} size ${SIZE} exceeds max acceptable size of ${MAX_BINARY_SIZE} bytes (${MAX_BINARY_MB} MiB)"
+  echo "${PROG} binary ${CMD_NAME} size ${SIZE} exceeds max acceptable size of ${MAX_BINARY_SIZE} bytes (${MAX_BINARY_MB} MiB)"
   exit 1
 fi
 
-echo "k3s binary ${CMD_NAME} size ${SIZE} is less than max acceptable size of ${MAX_BINARY_SIZE} bytes (${MAX_BINARY_MB} MiB)"
+echo "${PROG} binary ${CMD_NAME} size ${SIZE} is less than max acceptable size of ${MAX_BINARY_SIZE} bytes (${MAX_BINARY_MB} MiB)"
 exit 0
