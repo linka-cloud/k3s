@@ -24,6 +24,7 @@ import (
 const (
 	FlannelBackendNone         = "none"
 	FlannelBackendHostGW       = "host-gw"
+	FlannelBackendAlloc        = "alloc"
 	EgressSelectorModeAgent    = "agent"
 	EgressSelectorModeCluster  = "cluster"
 	EgressSelectorModeDisabled = "disabled"
@@ -141,22 +142,22 @@ type Agent struct {
 // CriticalControlArgs contains parameters that all control plane nodes in HA must share
 // The cli tag is used to provide better error information to the user on mismatch
 type CriticalControlArgs struct {
-	ClusterDNSs           []net.IP     `cli:"cluster-dns"`
-	ClusterIPRanges       []*net.IPNet `cli:"cluster-cidr"`
-	ClusterDNS            net.IP       `cli:"cluster-dns"`
-	ClusterDomain         string       `cli:"cluster-domain"`
-	ClusterIPRange        *net.IPNet   `cli:"cluster-cidr"`
-	DisableCCM            bool         `cli:"disable-cloud-controller"`
-	DisableNPC            bool         `cli:"disable-network-policy"`
-	EncryptSecrets        bool         `cli:"secrets-encryption"`
-	EncryptProvider       string       `cli:"secrets-encryption-provider"`
-	FlannelBackend        string       `cli:"flannel-backend"`
-	FlannelIPv6Masq       bool         `cli:"flannel-ipv6-masq"`
-	FlannelExternalIP     bool         `cli:"flannel-external-ip"`
-	EgressSelectorMode    string       `cli:"egress-selector-mode"`
-	ServiceIPRange        *net.IPNet   `cli:"service-cidr"`
-	ServiceIPRanges       []*net.IPNet `cli:"service-cidr"`
-	SupervisorMetrics     bool         `cli:"supervisor-metrics"`
+	ClusterDNSs        []net.IP     `cli:"cluster-dns"`
+	ClusterIPRanges    []*net.IPNet `cli:"cluster-cidr"`
+	ClusterDNS         net.IP       `cli:"cluster-dns"`
+	ClusterDomain      string       `cli:"cluster-domain"`
+	ClusterIPRange     *net.IPNet   `cli:"cluster-cidr"`
+	DisableCCM         bool         `cli:"disable-cloud-controller"`
+	DisableNPC         bool         `cli:"disable-network-policy"`
+	EncryptSecrets     bool         `cli:"secrets-encryption"`
+	EncryptProvider    string       `cli:"secrets-encryption-provider"`
+	FlannelBackend     string       `cli:"flannel-backend"`
+	FlannelIPv6Masq    bool         `cli:"flannel-ipv6-masq"`
+	FlannelExternalIP  bool         `cli:"flannel-external-ip"`
+	EgressSelectorMode string       `cli:"egress-selector-mode"`
+	ServiceIPRange     *net.IPNet   `cli:"service-cidr"`
+	ServiceIPRanges    []*net.IPNet `cli:"service-cidr"`
+	SupervisorMetrics  bool         `cli:"supervisor-metrics"`
 }
 
 type Control struct {
