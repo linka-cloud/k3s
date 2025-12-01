@@ -215,7 +215,7 @@ var ServerFlags = []cli.Flag{
 	ClusterDomain,
 	&cli.StringFlag{
 		Name:        "flannel-backend",
-		Usage:       "(networking) Backend (valid values: 'none', 'host-gw'",
+		Usage:       "(networking) Backend (valid values: 'none', 'host-gw', 'alloc'",
 		Destination: &ServerConfig.FlannelBackend,
 		Value:       "host-gw",
 	},
