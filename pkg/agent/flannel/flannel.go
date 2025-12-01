@@ -34,6 +34,7 @@ import (
 	"golang.org/x/net/context"
 
 	// Backends need to be imported for their init() to get executed and them to register
+	_ "github.com/flannel-io/flannel/pkg/backend/alloc"
 	_ "github.com/flannel-io/flannel/pkg/backend/extension"
 	_ "github.com/flannel-io/flannel/pkg/backend/hostgw"
 )
@@ -43,6 +44,7 @@ const (
 
 	BackendNone   = "none"
 	BackendHostGW = "host-gw"
+	BackendAlloc  = "alloc"
 )
 
 var (

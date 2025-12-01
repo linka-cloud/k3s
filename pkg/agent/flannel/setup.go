@@ -41,6 +41,10 @@ const (
 	"Type": "host-gw"
 }`
 
+	allocBackend = `{
+	"Type": "alloc"
+}`
+
 	emptyIPv6Network = "::/0"
 )
 
@@ -209,6 +213,8 @@ func createFlannelConf(nodeConfig *config.Node) error {
 	switch nodeConfig.Flannel.Backend {
 	case BackendHostGW:
 		backendConf = hostGWBackend
+	case BackendAlloc:
+		backendConf = allocBackend
 	default:
 		return fmt.Errorf("Cannot configure unknown flannel backend '%s'", nodeConfig.Flannel.Backend)
 	}
